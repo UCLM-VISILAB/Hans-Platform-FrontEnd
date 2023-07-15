@@ -14,7 +14,7 @@ export default function AdminView() {
     const [password, setPassword] = useState(null);
     const [status, setStatus] = useState(null);
     const [sessions, setSessions] = useState(null);
-    const [questions, setQuestions] = useState(null);
+    const [collections, setCollectionss] = useState(null);
     const joinSession = (username, password, status) => {
         setUsername(username);
         setPassword(password);
@@ -49,7 +49,7 @@ export default function AdminView() {
                 console.log(error);
             });
             fetch(
-                `/api/question`,
+                `/api/collection`,
                 {
                     method: 'GET',
                     headers: {
@@ -59,7 +59,7 @@ export default function AdminView() {
             ).then(res => {
                 if (res.status === 200) {
                     res.json().then(data => {
-                        setQuestions(data);
+                        setCollectionss(data);
                     });
                 } else {
                     res.text().then(msg => console.log(msg));
@@ -99,7 +99,7 @@ export default function AdminView() {
                 <AdminInterface
                     username={username}
                     password={password}
-                    questions={questions}
+                    collections={collections}
                     sessions={sessions}
                     onSessionCreated={handleSessionCreated}
                 ></AdminInterface>

@@ -23,7 +23,7 @@
     align-items: flex-start;
     padding: 20px;
     width: 200px;
-    height: 30%;
+    height: 40%;
   }
   
   .admin-interface  .startsession {
@@ -109,7 +109,7 @@
   
   .admin-interface .right-column {
     height: 100%;
-    width: 40%;
+    width: 50%;
     padding: 3%;
     background-color: #f2f2f2;
   }

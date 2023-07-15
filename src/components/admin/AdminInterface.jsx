@@ -6,15 +6,16 @@ import CountDown from '../session/Countdown';
 import BoardView from '../BoardView';
 import QuestionDetails from '../session/QuestionDetails';
 
-export default function AdminInterface({ username, password, questions, sessions, onSessionCreated }) {
-  const [selectedSession, setSelectedSession] = useState({ id: 0, duration: 0, question_id: "", status: "" });
+export default function AdminInterface({ username, password, collections, sessions, onSessionCreated }) {
+  const [selectedSession, setSelectedSession] = useState({ id: 0, duration: 0,collection_id: "", question_id: "", status: "" });
   const [participantList, setParticipantList] = useState(null);
   const [currentSession, setCurrentSession] = useState(null);
   const [sessionStatus, setSessionStatus] = useState(SessionStatus.Waiting);
   const [logs, setLogs] = useState([]);
   const [selectedLog, setSelectedLog] = useState('');
-  const [waitingCountDown, setWaitingCountDown] = useState(false);
+  const [waitingCountDown, setWaitingCountDown] = useState(false);  
   const [activeQuestion, setActiveQuestion] = useState({});
+  const [activeCollection, setActiveCollection] = useState({});
   const [userMagnetPosition] = useState({ x: 0, y: 0, norm: [] });
   const [peerMagnetPositions, setPeerMagnetPositions] = useState({});
   const [centralCuePosition, setCentralCuePosition] = useState([]);
@@ -29,15 +30,17 @@ export default function AdminInterface({ username, password, questions, sessions
   }, [sessions]);
 
   useEffect(() => {
-    if (questions && questions.length > 0 && selectedSession) {
+    if (collections && collections.length > 0 && selectedSession) {
+      setActiveCollection(collections[0])
       setSelectedSession((prevSelectedSession) => ({
         ...prevSelectedSession,
-        question_id: questions[0].id
+        collection_id: collections[0].id,
+        question_id: collections[0].questions[0].id
       }));
-      serBoardQuestion(questions[0].id);
+      setActiveQuestion(collections[0].id,collections[0].questions[0])
     }
      // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [questions]);
+  }, [collections]);
 
   const getParticipantsBySession = useCallback(() => {
     fetch(
@@ -75,8 +78,7 @@ export default function AdminInterface({ username, password, questions, sessions
         if (controlMessage.participant !== 0) {
           if (selectedSession.id === Number(controlMessage.session)) {
             switch (controlMessage.type) {
-              case 'join':  
-                console.log("case: join");
+              case 'join':
                 if(sessionStatus === SessionStatus.Active){
                   setTimeout(function() {
                     currentSession.publishControl({ type: 'setup', question_id: selectedSession.question_id});
@@ -86,7 +88,6 @@ export default function AdminInterface({ username, password, questions, sessions
                 getParticipantsBySession();
                 break;
               case 'ready':
-                console.log("case: ready");
                 if(sessionStatus === SessionStatus.Active){
                   setTimeout(function() {
                     let targetDate = new Date(targetDateCountdown);
@@ -140,36 +141,29 @@ export default function AdminInterface({ username, password, questions, sessions
   const handleQuestionChange = (event) => {
     setPeerMagnetPositions({});
     setSelectedSession({ ...selectedSession, question_id: event.target.value });
-    currentSession.publishControl({ type: 'setup', question_id: event.target.value });
-    serBoardQuestion(event.target.value);
-  }
-
-  const serBoardQuestion = (question_id) =>{
-    fetch(
-      `/api/question/${question_id}`,
-      {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
-      }
-    ).then(res => {
-      if (res.status === 200) {
-        res.json().then(data => {
-            setActiveQuestion({
-              id: data.id,
-              prompt: data.prompt,
-              answers: data.answers,
-              image: `/api/question/${data.id}/image`,
-            });
-        });
-      } else {
-        res.text().then(msg => console.log(msg));
-      }
-    }).catch(error => {
-      console.log(error);
+    setActiveQuestion({
+      id: event.target.value,
+      prompt: activeCollection.questions[event.target.value - activeCollection.firstQuestionId].prompt,
+      answers: activeCollection.questions[event.target.value - activeCollection.firstQuestionId].answers,
+      image: `/api/question/${activeCollection.id}/${event.target.value}/image`,
     });
+    console.log(currentSession)
+    currentSession.publishControl({ type: 'setup', collection_id:activeCollection.id ,question_id: event.target.value });
   }
+  const handleCollectionChange = (event) => {
+    setPeerMagnetPositions({});
+    setSelectedSession({ ...selectedSession,collection_id: event.target.value});
+    let collection = collections.find(item => item.id === event.target.value);
+    setActiveCollection(collection)
+    setActiveQuestion({
+      id: 1,
+      prompt: collection.questions[1].prompt,
+      answers: collection.questions[1].answers,
+      image: `/api/question/${collection.id}/${collection.firstQuestionId}/image`,
+    });
+    currentSession.publishControl({ type: 'setup', collection_id:collection.id ,question_id: collection.firstQuestionId });
+  }
+  
   const startSession = (event) => {
     currentSession.publishControl({ type: 'start', targetDate: Date.now() + selectedSession.duration * 1000 });
     setSessionStatus(SessionStatus.Active);
@@ -180,6 +174,7 @@ export default function AdminInterface({ username, password, questions, sessions
     if (!waitingCountDown) {
       setWaitingCountDown(true);
       timerId = setTimeout(() => {
+        currentSession.publishUpdate({ data: { position: centralCuePosition, timeStamp: new Date().toISOString() } })
         currentSession.publishControl({ type: 'stop' });
         setWaitingCountDown(false);
         setTargetDateCountdown(Date.now())
@@ -187,6 +182,7 @@ export default function AdminInterface({ username, password, questions, sessions
       }, selectedSession.duration * 1000);
     } else {
       clearTimeout(timerId);
+      currentSession.publishUpdate({ data: { position: centralCuePosition, timeStamp: new Date().toISOString() } })
       currentSession.publishControl({ type: 'stop' });
       setWaitingCountDown(false);
       setTargetDateCountdown(Date.now())
@@ -286,9 +282,15 @@ export default function AdminInterface({ username, password, questions, sessions
         <input type="text" readOnly value={selectedSession && selectedSession.id} />
         <label>Duration:</label>
         <input type="text" value={selectedSession ? selectedSession.duration : ""} onChange={e => setSelectedSession({ ...selectedSession, duration: e.target.value })} />
+        <label>Collection:</label>
+        <select onChange={handleCollectionChange} disabled={waitingCountDown}>
+          {collections && collections.map(collection => (
+            <option key={collection.id} value={collection.id}>{collection.id}</option>
+          ))}
+        </select>
         <label>Question:</label>
         <select onChange={handleQuestionChange} disabled={waitingCountDown}>
-          {questions && questions.map(question => (
+          {activeCollection.questions && activeCollection.questions.map(question => (
             <option key={question.id} value={question.id}>{question.prompt}</option>
           ))}
         </select>
@@ -327,15 +329,15 @@ export default function AdminInterface({ username, password, questions, sessions
     </div>
 
     <div className="right-column">
-        <BoardView
-              answers={activeQuestion.answers ? activeQuestion.answers : []}
-              centralCuePosition={centralCuePosition}
-              peerMagnetPositions={peerMagnetPositions && Object.keys(peerMagnetPositions).map(
-                k => peerMagnetPositions[k]
-              )}
-              userMagnetPosition={userMagnetPosition}
-              onUserMagnetMove={null}
-        />
+          <BoardView
+                answers={activeQuestion.answers ? activeQuestion.answers : []}
+                centralCuePosition={centralCuePosition}
+                peerMagnetPositions={peerMagnetPositions && Object.keys(peerMagnetPositions).map(
+                  k => peerMagnetPositions[k]
+                )}
+                userMagnetPosition={userMagnetPosition}
+                onUserMagnetMove={null}
+          />
     </div>
   </div>
   );

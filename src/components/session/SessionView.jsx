@@ -56,10 +56,13 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
               if (controlMessage.question_id === null) {
                 setQuestion({ status: QuestionStatus.Undefined });
               } else {
-                setQuestion({
-                  status: QuestionStatus.Loading,
-                  id: controlMessage.question_id
-                });
+                if(controlMessage.collection !== null){
+                  setQuestion({
+                    status: QuestionStatus.Loading,
+                    collection: controlMessage.collection_id,
+                    id: controlMessage.question_id,
+                  });
+                }
               }
             }
             break;
@@ -115,7 +118,7 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
     let ignore = false;
     if (question.status === QuestionStatus.Loading) {
       fetch(
-        `/api/question/${question.id}`,
+        `/api/question/${question.collection}/${question.id}`,
         {
           method: 'GET',
           headers: {
@@ -131,7 +134,7 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
                 id: data.id,
                 prompt: data.prompt,
                 answers: data.answers,
-                image: `/api/question/${data.id}/image`,
+                image: `/api/question/${question.collection}/${data.id}/image`,
               });
               sessionRef.current.publishControl({ type: 'ready' , participant: participantId, session: sessionId});
             }

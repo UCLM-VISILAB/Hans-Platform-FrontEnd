@@ -20,7 +20,7 @@ export default function AdminInterface({ username, password, collections, sessio
   const [peerMagnetPositions, setPeerMagnetPositions] = useState({});
   const [centralCuePosition, setCentralCuePosition] = useState([]);
   const [targetDateCountdown, setTargetDateCountdown] = useState('2023-04-01T00:00:00Z');
-  
+  const [shouldPublishCentralPosition, setShouldPublishCentralPosition] = useState(false);
   let timerId;
 
   useEffect(() => {
@@ -103,12 +103,14 @@ export default function AdminInterface({ username, password, collections, sessio
         }
       },
       (participantId, updateMessage) => {
-        setPeerMagnetPositions((peerPositions) => {
-          return {
-            ...peerPositions,
-            [participantId]: updateMessage.data.position
-          }
-        });
+        if(participantId!==0){
+          setPeerMagnetPositions((peerPositions) => {
+            return {
+              ...peerPositions,
+              [participantId]: updateMessage.data.position
+            }
+          });
+        }
       }
       )
       );
@@ -117,7 +119,7 @@ export default function AdminInterface({ username, password, collections, sessio
 
   useEffect(() => {
     // Update central Cue based on magnet positions
-    if (peerMagnetPositions && Object.keys(peerMagnetPositions).length > 0) {
+    if (peerMagnetPositions && Object.keys(peerMagnetPositions).length > 1) {
       const usablePeerPositions = Object.keys(peerMagnetPositions).map(
         k => peerMagnetPositions[k]
       ).filter(peerPosition => peerPosition.length === activeQuestion.answers.length);
@@ -130,7 +132,17 @@ export default function AdminInterface({ username, password, collections, sessio
       );
     }
   }, [peerMagnetPositions]);
-
+  
+  useEffect(() => {
+    if (shouldPublishCentralPosition && currentSession) {
+      currentSession.publishUpdate({ data: { position: centralCuePosition, timeStamp: new Date().toISOString() } });
+      setShouldPublishCentralPosition(false);
+      setTimeout(() => {
+        currentSession.publishControl({ type: 'stop' });
+      }, 100);
+    }
+  }, [shouldPublishCentralPosition, currentSession]);
+  
   const handleSessionChange = (event) => {
     const sessionId = parseInt(event.target.value);
     const session = sessions.find(s => s.id === sessionId);
@@ -147,7 +159,6 @@ export default function AdminInterface({ username, password, collections, sessio
       answers: activeCollection.questions[event.target.value - activeCollection.firstQuestionId].answers,
       image: `/api/question/${activeCollection.id}/${event.target.value}/image`,
     });
-    console.log(currentSession)
     currentSession.publishControl({ type: 'setup', collection_id:activeCollection.id ,question_id: event.target.value });
   }
   const handleCollectionChange = (event) => {
@@ -163,32 +174,35 @@ export default function AdminInterface({ username, password, collections, sessio
     });
     currentSession.publishControl({ type: 'setup', collection_id:collection.id ,question_id: collection.firstQuestionId });
   }
-  
+
   const startSession = (event) => {
-    currentSession.publishControl({ type: 'start', targetDate: Date.now() + selectedSession.duration * 1000 });
-    setSessionStatus(SessionStatus.Active);
-    setTargetDateCountdown((Date.now() + selectedSession.duration * 1000 +200))
+    if(!waitingCountDown){
+      setPeerMagnetPositions({});
+      setCentralCuePosition([0,0,0,0,0,0]);
+      currentSession.publishControl({ type: 'start', targetDate: Date.now() + selectedSession.duration * 1000 });
+      setSessionStatus(SessionStatus.Active);
+      setTargetDateCountdown((Date.now() + selectedSession.duration * 1000 +200))
+    }
     waitOrCloseSession();
   }
+  
   const waitOrCloseSession = () => {
     if (!waitingCountDown) {
       setWaitingCountDown(true);
       timerId = setTimeout(() => {
-        currentSession.publishUpdate({ data: { position: centralCuePosition, timeStamp: new Date().toISOString() } })
-        currentSession.publishControl({ type: 'stop' });
-        setWaitingCountDown(false);
-        setTargetDateCountdown(Date.now())
-        setSessionStatus(SessionStatus.Waiting);
+        setShouldPublishCentralPosition(true); // Marcar que se debe publicar la posición central
+          setWaitingCountDown(false);
+          setTargetDateCountdown(Date.now());
+          setSessionStatus(SessionStatus.Waiting);
       }, selectedSession.duration * 1000);
     } else {
       clearTimeout(timerId);
-      currentSession.publishUpdate({ data: { position: centralCuePosition, timeStamp: new Date().toISOString() } })
-      currentSession.publishControl({ type: 'stop' });
-      setWaitingCountDown(false);
-      setTargetDateCountdown(Date.now())
-      setSessionStatus(SessionStatus.Waiting);
+      setShouldPublishCentralPosition(true); // Marcar que se debe publicar la posición central
+        setWaitingCountDown(false);
+        setTargetDateCountdown(Date.now());
+        setSessionStatus(SessionStatus.Waiting);
     }
-  }
+  };
   const createSession = (event) => {
     fetch(
       `/api/createSession`,

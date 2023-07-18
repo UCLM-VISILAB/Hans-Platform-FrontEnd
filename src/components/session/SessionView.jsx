@@ -103,13 +103,14 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
         }
       },
       (participantId, updateMessage) => {
-        setPeerMagnetPositions((peerPositions) => {
-          console.log(peerPositions)
-          return {
-            ...peerPositions,
-            [participantId]: updateMessage.data.position
-          }
-        });
+        if(participantId!==0){
+          setPeerMagnetPositions((peerPositions) => {
+            return {
+              ...peerPositions,
+              [participantId]: updateMessage.data.position
+            }
+          });
+        }
       }
       );
   }, [sessionId, participantId]);

@@ -28,6 +28,33 @@ export default function AdminInterface({ username, password, collections, sessio
       setSelectedSession(sessions[0]);
     }
   }, [sessions]);
+  
+  function customSortCollections(a, b) {
+    const getIdNumber = (str) => parseInt(str.split('_')[1]);
+  
+    const aIdNumber1 = getIdNumber(a.id);
+    const bIdNumber1 = getIdNumber(b.id);
+  
+    if (aIdNumber1 !== bIdNumber1) {
+      return aIdNumber1 - bIdNumber1;
+    }
+  
+    const aIdNumber2 = parseInt(a.id.split('_')[0]);
+    const bIdNumber2 = parseInt(b.id.split('_')[0]);
+  
+    return aIdNumber2 - bIdNumber2;
+  }
+  function customSortQuestions(a, b) {
+    const getIdNumber = (str) => {
+      const match = str.match(/_(\d+):/);
+      return match ? parseInt(match[1]) : 0;
+    };
+  
+    const aPromptNumber = getIdNumber(a.prompt);
+    const bPromptNumber = getIdNumber(b.prompt);
+  
+    return aPromptNumber - bPromptNumber;
+  }
 
   useEffect(() => {
     if (collections && collections.length > 0 && selectedSession) {
@@ -38,6 +65,10 @@ export default function AdminInterface({ username, password, collections, sessio
         question_id: collections[0].questions[0].id
       }));
       setActiveQuestion(collections[0].id,collections[0].questions[0])
+      collections.sort(customSortCollections);
+      collections.forEach(collection => {
+        collection.questions.sort(customSortQuestions);
+      });
     }
      // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collections]);

@@ -69,13 +69,13 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
           }
           case 'start': {
             setSessionStatus(SessionStatus.Active);
-            setTargetDateCountdown((controlMessage.targetDate + 13))
+            setTargetDateCountdown(new Date()+((controlMessage.duration-0.5)*1000))
             break;
           }
           case 'started': {
             if(sessionStatus!== SessionStatus.Active){
               setSessionStatus(SessionStatus.Active);
-              setTargetDateCountdown((controlMessage.targetDate + 13))
+              setTargetDateCountdown(new Date()+((controlMessage.duration-0.5)*1000))
               let positions = JSON.parse(controlMessage.positions);
               if (peerMagnetPositions.length !== 0) {
                 for (const participant in positions) {

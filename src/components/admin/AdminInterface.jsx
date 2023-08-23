@@ -55,7 +55,11 @@ export default function AdminInterface({ username, password, collections, sessio
 
     return aPromptNumber - bPromptNumber;
   }
-
+  const compareDates = (a, b) => {
+    const dateA = new Date(a);
+    const dateB = new Date(b);
+    return dateA - dateB;
+  };
   useEffect(() => {
     if (collections && collections.length > 0 && selectedSession) {
       setActiveCollection(collections[0])
@@ -152,6 +156,7 @@ export default function AdminInterface({ username, password, collections, sessio
       )
       );
     }
+    // eslint-disable-next-line
   }, [selectedSession.id, getParticipantsBySession]);
 
   useEffect(() => {
@@ -168,6 +173,7 @@ export default function AdminInterface({ username, password, collections, sessio
         ).map(value => value / (usablePeerPositions.length))
       );
     }
+    // eslint-disable-next-line
   }, [peerMagnetPositions]);
 
   useEffect(() => {
@@ -178,6 +184,7 @@ export default function AdminInterface({ username, password, collections, sessio
         currentSession.publishControl({ type: 'stop' });
       }, 100);
     }
+    // eslint-disable-next-line
   }, [shouldPublishCentralPosition, currentSession]);
 
   const handleSessionChange = (event) => {
@@ -282,7 +289,25 @@ export default function AdminInterface({ username, password, collections, sessio
       console.log(error);
     });
   }
-
+  const downloadLastFolder = async () => {
+    let folderPath = logs[logs.length - 2];
+    setSelectedLog(folderPath);
+    await new Promise((resolve) => setTimeout(resolve, 0)); // Esperar un ciclo de eventos para que setSelectedLog termine de actualizar
+    fetch(`/api/downloadLog/${logs[logs.length - 2]}`)
+      .then(response => response.blob())
+      .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        let folder_name = folderPath + ".zip";
+        link.setAttribute('download', folder_name);
+        document.body.appendChild(link);
+        link.click();
+      })
+      .catch(error => {
+        console.log(error);
+      });
+  };
   const downloadFolder = () => {
     let folderPath = selectedLog
     fetch(`/api/downloadLog/${folderPath}`)
@@ -321,7 +346,8 @@ export default function AdminInterface({ username, password, collections, sessio
     try {
       const response = await fetch('/api/listLogs');
       const data = await response.json();
-      setLogs(data.logs);
+      setLogs(data.logs.sort(compareDates));
+
     } catch (error) {
       console.log(error);
     }
@@ -377,7 +403,7 @@ export default function AdminInterface({ username, password, collections, sessio
           <CountDown targetDate={targetDateCountdown} />
         </div>
         <div className="loglist">
-          <label id="label-log">Lista de logs:</label>
+          <label id="label-log">Lista de logs:({logs ? logs.length-1 : 0})</label>
           <select value={selectedLog} onChange={handleLogSelect}>
             <option value="">Seleccionar log</option>
             {logs.map(log => {
@@ -389,6 +415,7 @@ export default function AdminInterface({ username, password, collections, sessio
           </select>
           <button onClick={fetchlogs}>Obtener logs</button>
           <button onClick={downloadFolder}>Descargar log</button>
+          <button onClick={downloadLastFolder}>Descargar último log</button>
           <button onClick={downloadAllLogs}>Descargar todos los logs</button>
         </div>
       </div>

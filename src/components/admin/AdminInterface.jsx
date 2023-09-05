@@ -56,8 +56,15 @@ export default function AdminInterface({ username, password, collections, sessio
     return aPromptNumber - bPromptNumber;
   }
   const compareDates = (a, b) => {
-    const dateA = new Date(a);
-    const dateB = new Date(b);
+    // Divide las cadenas en sus componentes
+    const componentsA = a.split('-').map(Number);
+    const componentsB = b.split('-').map(Number);
+  
+    // Crea objetos de fecha personalizados
+    const dateA = new Date(componentsA[0], componentsA[1] - 1, componentsA[2], componentsA[3], componentsA[4], componentsA[5]);
+    const dateB = new Date(componentsB[0], componentsB[1] - 1, componentsB[2], componentsB[3], componentsB[4], componentsB[5]);
+  
+    // Realiza la comparación
     return dateA - dateB;
   };
   useEffect(() => {
@@ -290,10 +297,10 @@ export default function AdminInterface({ username, password, collections, sessio
     });
   }
   const downloadLastFolder = async () => {
-    let folderPath = logs[logs.length - 2];
+    let folderPath = logs[logs.length - 1];
     setSelectedLog(folderPath);
     await new Promise((resolve) => setTimeout(resolve, 0)); // Esperar un ciclo de eventos para que setSelectedLog termine de actualizar
-    fetch(`/api/downloadLog/${logs[logs.length - 2]}`)
+    fetch(`/api/downloadLog/${logs[logs.length - 1]}`)
       .then(response => response.blob())
       .then(blob => {
         const url = window.URL.createObjectURL(blob);
@@ -346,7 +353,7 @@ export default function AdminInterface({ username, password, collections, sessio
     try {
       const response = await fetch('/api/listLogs');
       const data = await response.json();
-      setLogs(data.logs.sort(compareDates));
+      setLogs(data.logs.filter(item => item !== "zips").sort(compareDates));
 
     } catch (error) {
       console.log(error);
@@ -403,7 +410,7 @@ export default function AdminInterface({ username, password, collections, sessio
           <CountDown targetDate={targetDateCountdown} />
         </div>
         <div className="loglist">
-          <label id="label-log">Lista de logs:({logs ? logs.length-1 : 0})</label>
+          <label id="label-log">Lista de logs:({logs ? logs.length : 0})</label>
           <select value={selectedLog} onChange={handleLogSelect}>
             <option value="">Seleccionar log</option>
             {logs.map(log => {

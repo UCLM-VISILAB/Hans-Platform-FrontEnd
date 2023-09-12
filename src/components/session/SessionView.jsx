@@ -69,7 +69,7 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
           }
           case 'start': {
             setSessionStatus(SessionStatus.Active);
-            setTargetDateCountdown(new Date()+((controlMessage.duration-0.5)*1000))
+            setTargetDateCountdown((Date.now() + (controlMessage.duration-0.5) * 1000))
             break;
           }
           case 'started': {

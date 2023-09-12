@@ -59,12 +59,9 @@ export default function AdminInterface({ username, password, collections, sessio
     // Divide las cadenas en sus componentes
     const componentsA = a.split('-').map(Number);
     const componentsB = b.split('-').map(Number);
-  
     // Crea objetos de fecha personalizados
     const dateA = new Date(componentsA[0], componentsA[1] - 1, componentsA[2], componentsA[3], componentsA[4], componentsA[5]);
     const dateB = new Date(componentsB[0], componentsB[1] - 1, componentsB[2], componentsB[3], componentsB[4], componentsB[5]);
-  
-    // Realiza la comparación
     return dateA - dateB;
   };
   useEffect(() => {

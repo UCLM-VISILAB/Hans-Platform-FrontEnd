@@ -10,7 +10,7 @@ export default function BoardView({
 
   const magnetSize = 30;
   const halfMagnetSize = magnetSize / 2;
-  const answersRadius = 430;
+  const answersRadius = 340;
   const answersTextRadius = answersRadius + 25;
   let answerPoints = [];
   let answersText = [];

@@ -141,6 +141,9 @@ export default function AdminInterface({ username, password, collections, sessio
                 }
                 getParticipantsBySession();
                 break;
+              case 'leave':
+                getParticipantsBySession();
+                break;
               default:
                 break;
             }

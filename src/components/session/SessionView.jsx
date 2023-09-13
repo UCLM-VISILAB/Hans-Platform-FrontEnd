@@ -113,6 +113,7 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
         }
       }
       );
+      // eslint-disable-next-line
   }, [sessionId, participantId]);
 
   useEffect(() => {
@@ -148,6 +149,7 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
       });
     }
     return () => { ignore = true };
+    // eslint-disable-next-line
   }, [question]);
 
   useEffect(() => {
@@ -165,6 +167,7 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
         ).map(value => value / (1 + usablePeerPositions.length))
       );
     }
+    // eslint-disable-next-line
   }, [userMagnetPosition, peerMagnetPositions])
 
   // DEBUG-ONLY
@@ -213,10 +216,8 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
       }
     ).then(res => {
       if (res.status === 200) {
-        res.json().then(data => {
-        });
-      } else {
-      }
+        sessionRef.current.publishControl({ type: 'leave' , participant: participantId, session: sessionId});
+      } 
     }).catch(error => {
     });
     onLeave();

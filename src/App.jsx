@@ -24,23 +24,6 @@ function App() {
     sessionStorage.removeItem('session_id');
     sessionStorage.removeItem('participant_id');
     sessionStorage.removeItem('username');
-    fetch(
-      `/api/session/${sessionId}/participants/${participantId}`,
-      {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
-      }
-    ).then(res => {
-      if(res.status === 200) {
-        res.json().then(data => {
-        });
-      } else {
-      }
-    }).catch(error => {
-    });
     navigate('/');
   };
 

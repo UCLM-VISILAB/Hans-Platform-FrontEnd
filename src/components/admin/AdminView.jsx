@@ -14,7 +14,7 @@ export default function AdminView() {
     const [password, setPassword] = useState(null);
     const [status, setStatus] = useState(null);
     const [sessions, setSessions] = useState(null);
-    const [collections, setCollectionss] = useState(null);
+    const [collections, setCollections] = useState(null);
     const joinSession = (username, password, status) => {
         setUsername(username);
         setPassword(password);
@@ -59,7 +59,23 @@ export default function AdminView() {
             ).then(res => {
                 if (res.status === 200) {
                     res.json().then(data => {
-                        setCollectionss(data);
+                        if (data) {
+                            const collectionEntries = Object.entries(data);
+                
+                            // Ordena el arreglo de pares clave-valor utilizando customSortCollections
+                            collectionEntries.sort((a, b) => customSortCollections({ id: a[0] }, { id: b[0] }));
+                
+                            // Crea un nuevo objeto a partir del arreglo ordenado de pares clave-valor
+                            const sortedCollections = Object.fromEntries(collectionEntries);
+                
+                            for (const collectionKey in sortedCollections) {
+                                if (sortedCollections.hasOwnProperty(collectionKey)) {
+                                    const sortedQuestions = [...sortedCollections[collectionKey]].sort(customSortQuestions);
+                                    sortedCollections[collectionKey] = sortedQuestions;
+                                }
+                            }
+                            setCollections(sortedCollections);
+                        }
                     });
                 } else {
                     res.text().then(msg => console.log(msg));
@@ -70,9 +86,36 @@ export default function AdminView() {
 
         }
     }, [status]);
-    
+
     const handleSessionCreated = (newSession) => {
         setSessions([...sessions, newSession]);
+    }
+
+    function customSortCollections(a, b) {
+        const getIdNumber = (str) => parseInt(str.split('_')[1]);
+
+        const aIdNumber1 = getIdNumber(a.id);
+        const bIdNumber1 = getIdNumber(b.id);
+
+        if (aIdNumber1 !== bIdNumber1) {
+            return aIdNumber1 - bIdNumber1;
+        }
+
+        const aIdNumber2 = parseInt(a.id.split('_')[0]);
+        const bIdNumber2 = parseInt(b.id.split('_')[0]);
+
+        return aIdNumber2 - bIdNumber2;
+    }
+    function customSortQuestions(a, b) {
+        const getIdNumber = (str) => {
+            const match = str.match(/_(\d+):?/);
+            return match ? parseInt(match[1]) : 0;
+        };
+
+        const aPromptNumber = getIdNumber(a);
+        const bPromptNumber = getIdNumber(b);
+
+        return aPromptNumber - bPromptNumber;
     }
     return (
         <Container component="main" maxWidth="l">

@@ -130,13 +130,15 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
       ).then(res => {
         if (res.status === 200) {
           res.json().then(data => {
+            console.log(data);
+            let questionId = data.question.substring(0, data.question.indexOf(":"));
             if (!ignore) {
               setQuestion({
                 status: QuestionStatus.Loaded,
-                id: data.id,
-                prompt: data.prompt,
+                id: questionId,
+                prompt: data.question,
                 answers: data.answers,
-                image: `/api/question/${question.collection}/${data.id}/image`,
+                image: `/api/question/${question.collection}/${questionId}/image`,
               });
               sessionRef.current.publishControl({ type: 'ready' , participant: participantId, session: sessionId});
             }

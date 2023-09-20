@@ -15,7 +15,6 @@ export default function AdminInterface({ username, password, collections, sessio
   const [selectedLog, setSelectedLog] = useState('');
   const [waitingCountDown, setWaitingCountDown] = useState(false);
   const [activeQuestion, setActiveQuestion] = useState({});
-  const [activeCollection, setActiveCollection] = useState({});
   const [userMagnetPosition] = useState({ x: 0, y: 0, norm: [] });
   const [peerMagnetPositions, setPeerMagnetPositions] = useState({});
   const [centralCuePosition, setCentralCuePosition] = useState([]);
@@ -29,60 +28,30 @@ export default function AdminInterface({ username, password, collections, sessio
     }
   }, [sessions]);
 
-  function customSortCollections(a, b) {
-    const getIdNumber = (str) => parseInt(str.split('_')[1]);
-
-    const aIdNumber1 = getIdNumber(a.id);
-    const bIdNumber1 = getIdNumber(b.id);
-
-    if (aIdNumber1 !== bIdNumber1) {
-      return aIdNumber1 - bIdNumber1;
-    }
-
-    const aIdNumber2 = parseInt(a.id.split('_')[0]);
-    const bIdNumber2 = parseInt(b.id.split('_')[0]);
-
-    return aIdNumber2 - bIdNumber2;
-  }
-  function customSortQuestions(a, b) {
-    const getIdNumber = (str) => {
-      const match = str.match(/_(\d+):/);
-      return match ? parseInt(match[1]) : 0;
-    };
-
-    const aPromptNumber = getIdNumber(a.prompt);
-    const bPromptNumber = getIdNumber(b.prompt);
-
-    return aPromptNumber - bPromptNumber;
-  }
-  const compareDates = (a, b) => {
-    // Divide las cadenas en sus componentes
-    const componentsA = a.split('-').map(Number);
-    const componentsB = b.split('-').map(Number);
-    // Crea objetos de fecha personalizados
-    const dateA = new Date(componentsA[0], componentsA[1] - 1, componentsA[2], componentsA[3], componentsA[4], componentsA[5]);
-    const dateB = new Date(componentsB[0], componentsB[1] - 1, componentsB[2], componentsB[3], componentsB[4], componentsB[5]);
-    return dateA - dateB;
-  };
   useEffect(() => {
-    if (collections && collections.length > 0 && selectedSession) {
-      setActiveCollection(collections[0])
-      collections.sort(customSortCollections);
-      collections.forEach(collection => {
-        collection.questions.sort(customSortQuestions);
-      });
+    if (collections && Object.keys(collections).length > 0) {
       setSelectedSession((prevSelectedSession) => ({
         ...prevSelectedSession,
-        collection_id: collections[0].id,
-        question_id: collections[0].questions[0].id
+        collection_id: Object.keys(collections)[0],
+        question_id: Object.values(collections)[0][0]
       }));
-      setActiveQuestion({
-        id: collections[0].questions[0].id,
-        prompt: collections[0].questions[0].prompt,
-        answers: collections[0].questions[0].answers,
-        image: `/api/question/${collections[0].id}/${collections[0].questions[0].id}/image`,
+      fetchQuestion(Object.keys(collections)[0], Object.values(collections)[0][0])
+      .then(questionData => {
+        setActiveQuestion({
+          id: questionData.id,
+          prompt: questionData.prompt,
+          answers: questionData.answers,
+          image: `/api/question/${Object.keys(collections)[0]}/${questionData.id}/image`,
+        });
+        currentSession.publishControl({
+          type: 'setup',
+          collection_id: Object.keys(collections)[0],
+          question_id: questionData.id,
+        });
+      })
+      .catch(error => {
+        console.log(error);
       });
-      
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collections]);
@@ -125,8 +94,8 @@ export default function AdminInterface({ username, password, collections, sessio
             switch (controlMessage.type) {
               case 'join':
                 if (sessionStatus === SessionStatus.Active) {
-                  setTimeout(function () { //Mirar collection_id:activeCollection.id en el mensaje
-                    currentSession.publishControl({ type: 'setup', collection_id: activeCollection.id, question_id: selectedSession.question_id });
+                  setTimeout(function () {
+                    currentSession.publishControl({ type: 'setup', collection_id: selectedSession.collection_id, question_id: selectedSession.question_id });
                   }, 1000);
 
                 }
@@ -136,12 +105,13 @@ export default function AdminInterface({ username, password, collections, sessio
                 if (sessionStatus === SessionStatus.Active) {
                   setTimeout(function () {
                     let targetDate = new Date(targetDateCountdown);
-                    currentSession.publishControl({ type: 'started', duration: (targetDate-new Date())/1000 , positions: peerMagnetPositions });
+                    currentSession.publishControl({ type: 'started', duration: (targetDate - new Date()) / 1000, positions: peerMagnetPositions });
                   }, 1000);
                 }
                 getParticipantsBySession();
                 break;
               case 'leave':
+                console.log("Sale participante");
                 getParticipantsBySession();
                 break;
               default:
@@ -194,57 +164,84 @@ export default function AdminInterface({ username, password, collections, sessio
     // eslint-disable-next-line
   }, [shouldPublishCentralPosition, currentSession]);
 
-  const handleSessionChange = (event) => {
-    const sessionId = parseInt(event.target.value);
-    const session = sessions.find(s => s.id === sessionId);
-    session.question_id = selectedSession.question_id;
-    session.duration = selectedSession.duration;
-    setSelectedSession(session);
+  function fetchQuestion(collectionId, questionId) {
+    return fetch(`/api/question/${collectionId}/${questionId}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    })
+      .then(res => {
+        if (res.status === 200) {
+          return res.json(); // Devuelve la promesa para el siguiente .then
+        } else {
+          return res.text().then(msg => {
+            console.log(msg);
+            throw new Error('Error en la solicitud');
+          });
+        }
+      })
+      .then(data => {
+        let questionId = data.question.substring(0, data.question.indexOf(":"));
+        return {
+          id: questionId,
+          prompt: data.question,
+          answers: data.answers,
+          image: `/api/question/${collectionId}/${questionId}/image`,
+        };
+      });
   }
   const handleQuestionChange = (event) => {
     setPeerMagnetPositions({});
     setSelectedSession({ ...selectedSession, question_id: event.target.value });
-    let question = activeCollection.questions.find(item => item.id === parseInt(event.target.value));
-    setActiveQuestion({
-      id: event.target.value,
-      prompt: question.prompt,
-      answers: question.answers,
-      image: `/api/question/${activeCollection.id}/${event.target.value}/image`,
-    });
-    currentSession.publishControl({ type: 'setup', collection_id: activeCollection.id, question_id: event.target.value });
+    fetchQuestion(selectedSession.collection_id, event.target.value)
+      .then(questionData => {
+        setActiveQuestion(questionData);
+        currentSession.publishControl({
+          type: 'setup',
+          collection_id: selectedSession.collection_id,
+          question_id: questionData.id,
+        });
+      })
+      .catch(error => {
+        console.log(error);
+      });
   }
   const handleCollectionChange = (event) => {
     setPeerMagnetPositions({});
-    setSelectedSession({ ...selectedSession, collection_id: event.target.value });
-    let collection = collections.find(item => item.id === event.target.value);
-    let question = null;
-
-    for (let i = 1; ; i++) {
-      const foundQuestion = collection.questions.find(item => {
-        const extractedNumber = parseInt(item.prompt.split("_")[1].substring(0, item.prompt.split("_")[1].indexOf(":")));
-        return extractedNumber === i;
+    setSelectedSession({ ...selectedSession, collection_id: event.target.value, question_id: collections[event.target.value][0] });
+    fetchQuestion(event.target.value, collections[event.target.value][0])
+      .then(questionData => {
+        setActiveQuestion({
+          id: questionData.id,
+          prompt: questionData.prompt,
+          answers: questionData.answers,
+          image: `/api/question/${event.target.value}/${questionData.id}/image`,
+        });
+        currentSession.publishControl({
+          type: 'setup',
+          collection_id: event.target.value,
+          question_id: questionData.id,
+        });
+      })
+      .catch(error => {
+        console.log(error);
       });
-
-      if (foundQuestion) {
-        question = foundQuestion;
-        break; // Salir del bucle si encontramos la pregunta.
-      }
-    }
-    setActiveCollection(collection)
-    setActiveQuestion({
-      id: question.id,
-      prompt: question.prompt,
-      answers: question.answers,
-      image: `/api/question/${collection.id}/${question.id}/image`,
-    });
-    currentSession.publishControl({ type: 'setup', collection_id: collection.id, question_id: question.id });
   }
 
+  const handleSessionChange = (event) => {
+    const sessionId = parseInt(event.target.value);
+    const session = sessions.find(s => s.id === sessionId)
+    session.question_id = selectedSession.question_id;
+    session.collection_id = selectedSession.collection_id;
+    session.duration = selectedSession.duration;
+    setSelectedSession(session);
+  }
   const startSession = (event) => {
     if (!waitingCountDown) {
       setPeerMagnetPositions({});
       setCentralCuePosition([0, 0, 0, 0, 0, 0]);
-      currentSession.publishControl({ type: 'start', duration: selectedSession.duration});
+      currentSession.publishControl({ type: 'start', duration: selectedSession.duration });
       setSessionStatus(SessionStatus.Active);
       setTargetDateCountdown((Date.now() + selectedSession.duration * 1000 + 200))
     }
@@ -296,11 +293,32 @@ export default function AdminInterface({ username, password, collections, sessio
       console.log(error);
     });
   }
-  const downloadLastFolder = async () => {
-    let folderPath = logs[logs.length - 1];
-    setSelectedLog(folderPath);
-    await new Promise((resolve) => setTimeout(resolve, 0)); // Esperar un ciclo de eventos para que setSelectedLog termine de actualizar
-    fetch(`/api/downloadLog/${logs[logs.length - 1]}`)
+  const compareDates = (a, b) => {
+    // Divide las cadenas en sus componentes
+    const componentsA = a.split('-').map(Number);
+    const componentsB = b.split('-').map(Number);
+    // Crea objetos de fecha personalizados
+    const dateA = new Date(componentsA[0], componentsA[1] - 1, componentsA[2], componentsA[3], componentsA[4], componentsA[5]);
+    const dateB = new Date(componentsB[0], componentsB[1] - 1, componentsB[2], componentsB[3], componentsB[4], componentsB[5]);
+    return dateA - dateB;
+  };
+  const fetchlogs = async () => {
+    try {
+      const response = await fetch('/api/listLogs');
+      const data = await response.json();
+      setLogs(data.logs.filter(item => item !== "zips").sort(compareDates));
+
+    } catch (error) {
+      console.log(error);
+    }
+  };
+  const handleLogSelect = (event) => {
+    const selectedLog = event.target.value;
+    setSelectedLog(selectedLog);
+  };
+  const downloadFolder = () => {
+    let folderPath = selectedLog
+    fetch(`/api/downloadLog/${folderPath}`)
       .then(response => response.blob())
       .then(blob => {
         const url = window.URL.createObjectURL(blob);
@@ -315,9 +333,11 @@ export default function AdminInterface({ username, password, collections, sessio
         console.log(error);
       });
   };
-  const downloadFolder = () => {
-    let folderPath = selectedLog
-    fetch(`/api/downloadLog/${folderPath}`)
+  const downloadLastFolder = async () => {
+    let folderPath = logs[logs.length - 1];
+    setSelectedLog(folderPath);
+    await new Promise((resolve) => setTimeout(resolve, 0)); // Esperar un ciclo de eventos para que setSelectedLog termine de actualizar
+    fetch(`/api/downloadLog/${logs[logs.length - 1]}`)
       .then(response => response.blob())
       .then(blob => {
         const url = window.URL.createObjectURL(blob);
@@ -349,20 +369,6 @@ export default function AdminInterface({ username, password, collections, sessio
       });
   };
 
-  const fetchlogs = async () => {
-    try {
-      const response = await fetch('/api/listLogs');
-      const data = await response.json();
-      setLogs(data.logs.filter(item => item !== "zips").sort(compareDates));
-
-    } catch (error) {
-      console.log(error);
-    }
-  };
-  const handleLogSelect = (event) => {
-    const selectedLog = event.target.value;
-    setSelectedLog(selectedLog);
-  };
   return (
     <div className="admin-interface">
       <div className="left-column">
@@ -382,14 +388,18 @@ export default function AdminInterface({ username, password, collections, sessio
           <input type="text" value={selectedSession ? selectedSession.duration : ""} onChange={e => setSelectedSession({ ...selectedSession, duration: e.target.value })} />
           <label>Collection:</label>
           <select onChange={handleCollectionChange} disabled={waitingCountDown}>
-            {collections && collections.map(collection => (
-              <option key={collection.id} value={collection.id}>{collection.id}</option>
+            {collections && Object.keys(collections).map(collectionKey => (
+              <option key={collectionKey} value={collectionKey}>
+                {collectionKey}
+              </option>
             ))}
           </select>
           <label>Question:</label>
           <select onChange={handleQuestionChange} disabled={waitingCountDown}>
-            {activeCollection.questions && activeCollection.questions.map(question => (
-              <option key={question.id} value={question.id}>{question.prompt}</option>
+            {collections && collections[selectedSession.collection_id] && Object.values(collections[selectedSession.collection_id]).map(collectionQuestion => (
+              <option key={collectionQuestion} value={collectionQuestion}>
+                {collectionQuestion}
+              </option>
             ))}
           </select>
         </div>
@@ -410,9 +420,9 @@ export default function AdminInterface({ username, password, collections, sessio
           <CountDown targetDate={targetDateCountdown} />
         </div>
         <div className="loglist">
-          <label id="label-log">Lista de logs:({logs ? logs.length : 0})</label>
+          <label id="label-log">List of logs:({logs ? logs.length : 0})</label>
           <select value={selectedLog} onChange={handleLogSelect}>
-            <option value="">Seleccionar log</option>
+            <option value="">Select log</option>
             {logs.map(log => {
               if (log !== "zips") {
                 return <option key={log} value={log}>{log}</option>;
@@ -420,10 +430,10 @@ export default function AdminInterface({ username, password, collections, sessio
               return null;
             })}
           </select>
-          <button onClick={fetchlogs}>Obtener logs</button>
-          <button onClick={downloadFolder}>Descargar log</button>
-          <button onClick={downloadLastFolder}>Descargar último log</button>
-          <button onClick={downloadAllLogs}>Descargar todos los logs</button>
+          <button onClick={fetchlogs}>Get logs</button>
+          <button onClick={downloadFolder}>Download selected log</button>
+          <button onClick={downloadLastFolder}>Download last log</button>
+          <button onClick={downloadAllLogs}>Download all logs</button>
         </div>
       </div>
 

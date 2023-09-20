@@ -42,7 +42,7 @@ const CountDown = ({ targetDate }) => {
               <div>{minutes<10 && 0}{minutes}:{seconds<10 && 0}{seconds}</div>
             </div>
           ) : (
-            <div>Tiempo finalizado</div>
+            <div>No time</div>
           )}
         </Typography>
       </div>

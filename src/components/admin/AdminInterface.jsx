@@ -28,15 +28,6 @@ export default function AdminInterface({ username, password, collections, sessio
     }
   }, [sessions]);
 
-  const compareDates = (a, b) => {
-    // Divide las cadenas en sus componentes
-    const componentsA = a.split('-').map(Number);
-    const componentsB = b.split('-').map(Number);
-    // Crea objetos de fecha personalizados
-    const dateA = new Date(componentsA[0], componentsA[1] - 1, componentsA[2], componentsA[3], componentsA[4], componentsA[5]);
-    const dateB = new Date(componentsB[0], componentsB[1] - 1, componentsB[2], componentsB[3], componentsB[4], componentsB[5]);
-    return dateA - dateB;
-  };
   useEffect(() => {
     if (collections && Object.keys(collections).length > 0) {
       setSelectedSession((prevSelectedSession) => ({
@@ -44,6 +35,23 @@ export default function AdminInterface({ username, password, collections, sessio
         collection_id: Object.keys(collections)[0],
         question_id: Object.values(collections)[0][0]
       }));
+      fetchQuestion(Object.keys(collections)[0], Object.values(collections)[0][0])
+      .then(questionData => {
+        setActiveQuestion({
+          id: questionData.id,
+          prompt: questionData.prompt,
+          answers: questionData.answers,
+          image: `/api/question/${Object.keys(collections)[0]}/${questionData.id}/image`,
+        });
+        currentSession.publishControl({
+          type: 'setup',
+          collection_id: Object.keys(collections)[0],
+          question_id: questionData.id,
+        });
+      })
+      .catch(error => {
+        console.log(error);
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collections]);
@@ -156,27 +164,13 @@ export default function AdminInterface({ username, password, collections, sessio
     // eslint-disable-next-line
   }, [shouldPublishCentralPosition, currentSession]);
 
-  const handleSessionChange = (event) => {
-    const sessionId = parseInt(event.target.value);
-    const session = sessions.find(s => s.id === sessionId);
-    console.log(session)
-    session.question_id = selectedSession.question_id;
-    session.collection_id = selectedSession.collection_id;
-    session.duration = selectedSession.duration;
-    setSelectedSession(session);
-  }
-  const handleQuestionChange = (event) => {
-    setPeerMagnetPositions({});
-    setSelectedSession({ ...selectedSession, question_id: event.target.value });
-    fetch(
-      `/api/question/${selectedSession.collection_id}/${event.target.value}`,
-      {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
-      }
-    )
+  function fetchQuestion(collectionId, questionId) {
+    return fetch(`/api/question/${collectionId}/${questionId}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    })
       .then(res => {
         if (res.status === 200) {
           return res.json(); // Devuelve la promesa para el siguiente .then
@@ -189,13 +183,25 @@ export default function AdminInterface({ username, password, collections, sessio
       })
       .then(data => {
         let questionId = data.question.substring(0, data.question.indexOf(":"));
-        setActiveQuestion({
+        return {
           id: questionId,
           prompt: data.question,
           answers: data.answers,
-          image: `/api/question/${selectedSession.collection_id}/${questionId}/image`,
+          image: `/api/question/${collectionId}/${questionId}/image`,
+        };
+      });
+  }
+  const handleQuestionChange = (event) => {
+    setPeerMagnetPositions({});
+    setSelectedSession({ ...selectedSession, question_id: event.target.value });
+    fetchQuestion(selectedSession.collection_id, event.target.value)
+      .then(questionData => {
+        setActiveQuestion(questionData);
+        currentSession.publishControl({
+          type: 'setup',
+          collection_id: selectedSession.collection_id,
+          question_id: questionData.id,
         });
-        currentSession.publishControl({ type: 'setup', collection_id: selectedSession.collection_id, question_id: questionId });
       })
       .catch(error => {
         console.log(error);
@@ -204,40 +210,33 @@ export default function AdminInterface({ username, password, collections, sessio
   const handleCollectionChange = (event) => {
     setPeerMagnetPositions({});
     setSelectedSession({ ...selectedSession, collection_id: event.target.value, question_id: collections[event.target.value][0] });
-    fetch(
-      `/api/question/${event.target.value}/${collections[event.target.value][0]}`,
-      {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
-      }
-    )
-      .then(res => {
-        if (res.status === 200) {
-          return res.json(); // Devuelve la promesa para el siguiente .then
-        } else {
-          return res.text().then(msg => {
-            console.log(msg);
-            throw new Error('Error en la solicitud');
-          });
-        }
-      })
-      .then(data => {
-        let questionId = data.question.substring(0, data.question.indexOf(":"));
+    fetchQuestion(event.target.value, collections[event.target.value][0])
+      .then(questionData => {
         setActiveQuestion({
-          id: questionId,
-          prompt: data.question,
-          answers: data.answers,
-          image: `/api/question/${event.target.value}/${questionId}/image`,
+          id: questionData.id,
+          prompt: questionData.prompt,
+          answers: questionData.answers,
+          image: `/api/question/${event.target.value}/${questionData.id}/image`,
         });
-        currentSession.publishControl({ type: 'setup', collection_id: event.target.value, question_id: questionId });
+        currentSession.publishControl({
+          type: 'setup',
+          collection_id: event.target.value,
+          question_id: questionData.id,
+        });
       })
       .catch(error => {
         console.log(error);
       });
   }
 
+  const handleSessionChange = (event) => {
+    const sessionId = parseInt(event.target.value);
+    const session = sessions.find(s => s.id === sessionId)
+    session.question_id = selectedSession.question_id;
+    session.collection_id = selectedSession.collection_id;
+    session.duration = selectedSession.duration;
+    setSelectedSession(session);
+  }
   const startSession = (event) => {
     if (!waitingCountDown) {
       setPeerMagnetPositions({});
@@ -294,11 +293,32 @@ export default function AdminInterface({ username, password, collections, sessio
       console.log(error);
     });
   }
-  const downloadLastFolder = async () => {
-    let folderPath = logs[logs.length - 1];
-    setSelectedLog(folderPath);
-    await new Promise((resolve) => setTimeout(resolve, 0)); // Esperar un ciclo de eventos para que setSelectedLog termine de actualizar
-    fetch(`/api/downloadLog/${logs[logs.length - 1]}`)
+  const compareDates = (a, b) => {
+    // Divide las cadenas en sus componentes
+    const componentsA = a.split('-').map(Number);
+    const componentsB = b.split('-').map(Number);
+    // Crea objetos de fecha personalizados
+    const dateA = new Date(componentsA[0], componentsA[1] - 1, componentsA[2], componentsA[3], componentsA[4], componentsA[5]);
+    const dateB = new Date(componentsB[0], componentsB[1] - 1, componentsB[2], componentsB[3], componentsB[4], componentsB[5]);
+    return dateA - dateB;
+  };
+  const fetchlogs = async () => {
+    try {
+      const response = await fetch('/api/listLogs');
+      const data = await response.json();
+      setLogs(data.logs.filter(item => item !== "zips").sort(compareDates));
+
+    } catch (error) {
+      console.log(error);
+    }
+  };
+  const handleLogSelect = (event) => {
+    const selectedLog = event.target.value;
+    setSelectedLog(selectedLog);
+  };
+  const downloadFolder = () => {
+    let folderPath = selectedLog
+    fetch(`/api/downloadLog/${folderPath}`)
       .then(response => response.blob())
       .then(blob => {
         const url = window.URL.createObjectURL(blob);
@@ -313,9 +333,11 @@ export default function AdminInterface({ username, password, collections, sessio
         console.log(error);
       });
   };
-  const downloadFolder = () => {
-    let folderPath = selectedLog
-    fetch(`/api/downloadLog/${folderPath}`)
+  const downloadLastFolder = async () => {
+    let folderPath = logs[logs.length - 1];
+    setSelectedLog(folderPath);
+    await new Promise((resolve) => setTimeout(resolve, 0)); // Esperar un ciclo de eventos para que setSelectedLog termine de actualizar
+    fetch(`/api/downloadLog/${logs[logs.length - 1]}`)
       .then(response => response.blob())
       .then(blob => {
         const url = window.URL.createObjectURL(blob);
@@ -347,20 +369,6 @@ export default function AdminInterface({ username, password, collections, sessio
       });
   };
 
-  const fetchlogs = async () => {
-    try {
-      const response = await fetch('/api/listLogs');
-      const data = await response.json();
-      setLogs(data.logs.filter(item => item !== "zips").sort(compareDates));
-
-    } catch (error) {
-      console.log(error);
-    }
-  };
-  const handleLogSelect = (event) => {
-    const selectedLog = event.target.value;
-    setSelectedLog(selectedLog);
-  };
   return (
     <div className="admin-interface">
       <div className="left-column">

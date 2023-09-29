@@ -85,6 +85,7 @@ export default function AdminView() {
             });
 
         }
+         // eslint-disable-next-line
     }, [status]);
 
     const handleSessionCreated = (newSession) => {

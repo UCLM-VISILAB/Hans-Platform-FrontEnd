@@ -16,7 +16,7 @@ import { QuestionStatus } from '../../context/Question';
 
 export default function SessionView({ sessionId, participantId, onLeave = () => { } }) {
   const sessionRef = useRef(null);
-  const [sessionStatus, setSessionStatus] = useState(SessionStatus.Joining);
+  const sessionStatus = useRef(SessionStatus.Joining);
   const [question, setQuestion] = useState({ status: QuestionStatus.Undefined });
   const [userMagnetPosition, setUserMagnetPosition] = useState({ x: 0, y: 0, norm: [] });
   const [peerMagnetPositions, setPeerMagnetPositions] = useState({});
@@ -35,10 +35,14 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
       }
     ).then(res => {
       if (res.status === 200) {
+        sessionStatus.current=SessionStatus.Waiting;
         res.json().then(data => {
-          setSessionStatus(SessionStatus.Waiting);
-          if (data.question_id) {
-            setQuestion({ status: QuestionStatus.Loading, id: data.question_id });
+          if (data.question_id && data.collection_id) {
+            setQuestion({
+              status: QuestionStatus.Loading,
+              collection: data.collection_id,
+              id: data.question_id,
+            });
           }
         });
       } else {
@@ -52,11 +56,10 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
       (controlMessage) => {
         switch (controlMessage.type) {
           case 'setup': {
-            if (sessionStatus!== SessionStatus.Active){
+            if (sessionStatus.current !== SessionStatus.Active) {
               if (controlMessage.question_id === null) {
                 setQuestion({ status: QuestionStatus.Undefined });
-              } else {
-                if(controlMessage.collection !== null){
+              } else if (controlMessage.collection !== null) {
                   setQuestion({
                     status: QuestionStatus.Loading,
                     collection: controlMessage.collection_id,
@@ -64,28 +67,26 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
                   });
                 }
               }
-            }
             break;
           }
           case 'start': {
-            setSessionStatus(SessionStatus.Active);
-            setTargetDateCountdown((Date.now() + (controlMessage.duration-0.5) * 1000))
+            sessionStatus.current=SessionStatus.Active;
+            setTargetDateCountdown((Date.now() + (controlMessage.duration - 0.5) * 1000))
             break;
           }
           case 'started': {
-            if(sessionStatus!== SessionStatus.Active){
-              setSessionStatus(SessionStatus.Active);
-              setTargetDateCountdown(new Date()+((controlMessage.duration-0.5)*1000))
-              let positions = JSON.parse(controlMessage.positions);
-              if (peerMagnetPositions.length !== 0) {
-                for (const participant in positions) {
-                  let usablePeerPositions = positions[participant].slice(positions[participant].indexOf('Z') + 2).split(',').map(parseFloat);
-                  if(participant !== participantId){
+            if(sessionStatus.current!==SessionStatus.Active){
+              setTargetDateCountdown(Date.now() + ((controlMessage.duration - 0.5) * 1000))
+              sessionStatus.current=SessionStatus.Active;
+              if (controlMessage.positions) {
+                for (const participant in controlMessage.positions) {
+                  if (participant !== participantId) {
+                    const usablePeerPositions = controlMessage.positions[participant].map(parseFloat);
                     setPeerMagnetPositions((peerPositions) => {
                       return {
                         ...peerPositions,
                         [participant]: usablePeerPositions
-                      }
+                      };
                     });
                   }
                 }
@@ -94,7 +95,7 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
             break;
           }
           case 'stop': {
-            setSessionStatus(SessionStatus.Waiting);
+            sessionStatus.current=SessionStatus.Waiting;
             setUserMagnetPosition({ x: 0, y: 0, norm: [] })
             setPeerMagnetPositions({});
             break;
@@ -103,7 +104,7 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
         }
       },
       (participantId, updateMessage) => {
-        if(participantId!==0){
+        if (participantId !== 0) {
           setPeerMagnetPositions((peerPositions) => {
             return {
               ...peerPositions,
@@ -112,13 +113,13 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
           });
         }
       }
-      );
-      // eslint-disable-next-line
+    );
+    // eslint-disable-next-line
   }, [sessionId, participantId]);
 
   useEffect(() => {
     let ignore = false;
-    if (question.status === QuestionStatus.Loading) {
+    if (question.collection && question.id) {
       fetch(
         `/api/question/${question.collection}/${question.id}`,
         {
@@ -130,7 +131,6 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
       ).then(res => {
         if (res.status === 200) {
           res.json().then(data => {
-            console.log(data);
             let questionId = data.question.substring(0, data.question.indexOf(":"));
             if (!ignore) {
               setQuestion({
@@ -140,7 +140,9 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
                 answers: data.answers,
                 image: `/api/question/${question.collection}/${questionId}/image`,
               });
-              sessionRef.current.publishControl({ type: 'ready' , participant: participantId, session: sessionId});
+              setTimeout(() => {
+                sessionRef.current.publishControl({ type: 'ready', participant: participantId, session: sessionId });
+              }, 100); 
             }
           });
         } else {
@@ -189,7 +191,7 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
   }, [question]);*/
 
   const onUserMagnetMove = (position) => {
-    if (sessionStatus !== SessionStatus.Active) return;
+    if (sessionStatus.current !== SessionStatus.Active) return;
     let sumPositions = 0
     for (let i = 0; i < position.norm.length; i++)
       sumPositions += position.norm[i];
@@ -218,8 +220,8 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
       }
     ).then(res => {
       if (res.status === 200) {
-        sessionRef.current.publishControl({ type: 'leave' , participant: participantId, session: sessionId});
-      } 
+        sessionRef.current.publishControl({ type: 'leave', participant: participantId, session: sessionId });
+      }
     }).catch(error => {
     });
     onLeave();
@@ -229,11 +231,11 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
     <>
       <Backdrop
         sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
-        open={sessionStatus !== SessionStatus.Active}
+        open={sessionStatus.current !== SessionStatus.Active}
       >
         <SessionStatusView
           sessionId={sessionId}
-          sessionStatus={sessionStatus}
+          sessionStatus={sessionStatus.current}
           questionStatus={question.status}
           onLeaveClick={onLeaveSessionClick}
         />
@@ -282,7 +284,7 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
               image={question.status === QuestionStatus.Loaded ? question.image : ""}
               prompt={question.status === QuestionStatus.Loaded ? question.prompt : "Question not defined yet"}
             />
-            {sessionStatus === SessionStatus.Active && <CountDown targetDate={targetDateCountdown} />}
+            {sessionStatus.current === SessionStatus.Active && <CountDown targetDate={targetDateCountdown} />}
           </Paper>
           <Paper
             elevation={2}

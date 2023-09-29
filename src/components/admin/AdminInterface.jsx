@@ -1,4 +1,4 @@
-import { React, useEffect, useState, useCallback } from "react";
+import { React, useEffect, useState, useCallback, useRef } from "react";
 
 import './AdminInterface.css';
 import { Session, SessionStatus } from '../../context/Session';
@@ -9,16 +9,18 @@ import QuestionDetails from '../session/QuestionDetails';
 export default function AdminInterface({ username, password, collections, sessions, onSessionCreated }) {
   const [selectedSession, setSelectedSession] = useState({ id: 0, duration: 0, collection_id: "", question_id: "", status: "" });
   const [participantList, setParticipantList] = useState(null);
-  const [currentSession, setCurrentSession] = useState(null);
-  const [sessionStatus, setSessionStatus] = useState(SessionStatus.Waiting);
+  const currentSession = useRef(null);
+  const sessionStatus = useRef(SessionStatus.Waiting);
   const [logs, setLogs] = useState([]);
   const [selectedLog, setSelectedLog] = useState('');
   const [waitingCountDown, setWaitingCountDown] = useState(false);
   const [activeQuestion, setActiveQuestion] = useState({});
   const [userMagnetPosition] = useState({ x: 0, y: 0, norm: [] });
   const [peerMagnetPositions, setPeerMagnetPositions] = useState({});
+  const usersMagnetPositions = useRef({});
   const [centralCuePosition, setCentralCuePosition] = useState([]);
-  const [targetDateCountdown, setTargetDateCountdown] = useState('2023-04-01T00:00:00Z');
+  const [targetDateCountdown, setTargetDateCountdown] =  useState('2023-04-01T00:00:00Z');
+  const targetDate = useRef('2023-04-01T00:00:00Z');
   const [shouldPublishCentralPosition, setShouldPublishCentralPosition] = useState(false);
   let timerId;
 
@@ -43,7 +45,7 @@ export default function AdminInterface({ username, password, collections, sessio
           answers: questionData.answers,
           image: `/api/question/${Object.keys(collections)[0]}/${questionData.id}/image`,
         });
-        currentSession.publishControl({
+        currentSession.current.publishControl({
           type: 'setup',
           collection_id: Object.keys(collections)[0],
           question_id: questionData.id,
@@ -87,31 +89,25 @@ export default function AdminInterface({ username, password, collections, sessio
 
   useEffect(() => {
     if (selectedSession.id !== 0) {
+      console.log("Llamada desde 92");
       getParticipantsBySession();
-      setCurrentSession(new Session(selectedSession.id, 0, (controlMessage) => {
+      currentSession.current=(new Session(selectedSession.id, 0, (controlMessage) => {
         if (controlMessage.participant !== 0) {
           if (selectedSession.id === Number(controlMessage.session)) {
             switch (controlMessage.type) {
               case 'join':
-                if (sessionStatus === SessionStatus.Active) {
-                  setTimeout(function () {
-                    currentSession.publishControl({ type: 'setup', collection_id: selectedSession.collection_id, question_id: selectedSession.question_id });
-                  }, 1000);
-
-                }
+                console.log("Llamada desde 99");
                 getParticipantsBySession();
                 break;
               case 'ready':
-                if (sessionStatus === SessionStatus.Active) {
-                  setTimeout(function () {
-                    let targetDate = new Date(targetDateCountdown);
-                    currentSession.publishControl({ type: 'started', duration: (targetDate - new Date()) / 1000, positions: peerMagnetPositions });
-                  }, 1000);
+                if (sessionStatus.current === SessionStatus.Active) {
+                    currentSession.current.publishControl({ type: 'started', duration: (targetDate.current - new Date()) / 1000, positions: usersMagnetPositions.current });
                 }
+                console.log("Llamada desde 106");
                 getParticipantsBySession();
                 break;
               case 'leave':
-                console.log("Sale participante");
+                console.log("Llamada desde 110");
                 getParticipantsBySession();
                 break;
               default:
@@ -122,12 +118,13 @@ export default function AdminInterface({ username, password, collections, sessio
       },
         (participantId, updateMessage) => {
           if (participantId !== 0) {
-            setPeerMagnetPositions((peerPositions) => {
-              return {
-                ...peerPositions,
-                [participantId]: updateMessage.data.position
-              }
-            });
+            const newPosition = {
+              ...usersMagnetPositions.current,
+              [participantId]: updateMessage.data.position
+            };
+          
+            setPeerMagnetPositions(newPosition);
+            usersMagnetPositions.current = newPosition;
           }
         }
       )
@@ -155,10 +152,10 @@ export default function AdminInterface({ username, password, collections, sessio
 
   useEffect(() => {
     if (shouldPublishCentralPosition && currentSession) {
-      currentSession.publishUpdate({ data: { position: centralCuePosition, timeStamp: new Date().toISOString() } });
+      currentSession.current.publishUpdate({ data: { position: centralCuePosition, timeStamp: new Date().toISOString() } });
       setShouldPublishCentralPosition(false);
       setTimeout(() => {
-        currentSession.publishControl({ type: 'stop' });
+        currentSession.current.publishControl({ type: 'stop' });
       }, 100);
     }
     // eslint-disable-next-line
@@ -191,13 +188,23 @@ export default function AdminInterface({ username, password, collections, sessio
         };
       });
   }
+  const setStatusJoinParticipants=()=>{
+    setParticipantList(participantList.map(participant => {
+      if (participant.status === 'ready') {
+        return { ...participant, status: 'joined' };
+      }
+      return participant; // mantener el estado si no es "ready"
+    }));
+  }
   const handleQuestionChange = (event) => {
+    usersMagnetPositions.current = {};
     setPeerMagnetPositions({});
     setSelectedSession({ ...selectedSession, question_id: event.target.value });
+    setStatusJoinParticipants();
     fetchQuestion(selectedSession.collection_id, event.target.value)
       .then(questionData => {
         setActiveQuestion(questionData);
-        currentSession.publishControl({
+        currentSession.current.publishControl({
           type: 'setup',
           collection_id: selectedSession.collection_id,
           question_id: questionData.id,
@@ -208,8 +215,10 @@ export default function AdminInterface({ username, password, collections, sessio
       });
   }
   const handleCollectionChange = (event) => {
+    usersMagnetPositions.current = {};
     setPeerMagnetPositions({});
     setSelectedSession({ ...selectedSession, collection_id: event.target.value, question_id: collections[event.target.value][0] });
+    setStatusJoinParticipants();
     fetchQuestion(event.target.value, collections[event.target.value][0])
       .then(questionData => {
         setActiveQuestion({
@@ -218,7 +227,7 @@ export default function AdminInterface({ username, password, collections, sessio
           answers: questionData.answers,
           image: `/api/question/${event.target.value}/${questionData.id}/image`,
         });
-        currentSession.publishControl({
+        currentSession.current.publishControl({
           type: 'setup',
           collection_id: event.target.value,
           question_id: questionData.id,
@@ -239,11 +248,14 @@ export default function AdminInterface({ username, password, collections, sessio
   }
   const startSession = (event) => {
     if (!waitingCountDown) {
+      sessionStatus.current = SessionStatus.Active;
+      usersMagnetPositions.current = {};
       setPeerMagnetPositions({});
       setCentralCuePosition([0, 0, 0, 0, 0, 0]);
-      currentSession.publishControl({ type: 'start', duration: selectedSession.duration });
-      setSessionStatus(SessionStatus.Active);
-      setTargetDateCountdown((Date.now() + selectedSession.duration * 1000 + 200))
+      currentSession.current.publishControl({ type: 'start', duration: selectedSession.duration });
+      targetDate.current=(Date.now() + selectedSession.duration * 1000 + 200);
+      setTargetDateCountdown(targetDate.current);
+      
     }
     waitOrCloseSession();
   }
@@ -254,15 +266,14 @@ export default function AdminInterface({ username, password, collections, sessio
       timerId = setTimeout(() => {
         setShouldPublishCentralPosition(true); // Marcar que se debe publicar la posición central
         setWaitingCountDown(false);
-        setTargetDateCountdown(Date.now());
-        setSessionStatus(SessionStatus.Waiting);
+        sessionStatus.current = SessionStatus.Waiting;
       }, selectedSession.duration * 1000);
     } else {
       clearTimeout(timerId);
       setShouldPublishCentralPosition(true); // Marcar que se debe publicar la posición central
       setWaitingCountDown(false);
       setTargetDateCountdown(Date.now());
-      setSessionStatus(SessionStatus.Waiting);
+      sessionStatus.current = SessionStatus.Waiting;
     }
   };
   const createSession = (event) => {

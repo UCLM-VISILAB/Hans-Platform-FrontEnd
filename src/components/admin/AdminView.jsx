@@ -1,11 +1,7 @@
 import { React, useState, useEffect } from "react";
-
 import Backdrop from '@mui/material/Backdrop';
-
 import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
-
-
 import AdminLogin from './AdminLogin.jsx';
 import AdminInterface from './AdminInterface.jsx';
 
@@ -15,83 +11,12 @@ export default function AdminView() {
     const [status, setStatus] = useState(null);
     const [sessions, setSessions] = useState(null);
     const [collections, setCollections] = useState(null);
+
     const joinSession = (username, password, status) => {
         setUsername(username);
         setPassword(password);
         setStatus(status);
     };
-    useEffect(() => {
-        if (status != null) {
-            fetch(
-                `/api/session`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(
-                        {
-                            user: username,
-                            pass: password
-                        }
-                    )
-                }
-            ).then(res => {
-                if (res.status === 200) {
-                    res.json().then(data => {
-                        setSessions(data);
-                    });
-                } else {
-                    res.text().then(msg => console.log(msg));
-                }
-            }).catch(error => {
-                console.log(error);
-            });
-            fetch(
-                `/api/collection`,
-                {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json',
-                    }
-                }
-            ).then(res => {
-                if (res.status === 200) {
-                    res.json().then(data => {
-                        if (data) {
-                            const collectionEntries = Object.entries(data);
-                
-                            // Ordena el arreglo de pares clave-valor utilizando customSortCollections
-                            collectionEntries.sort((a, b) => customSortCollections({ id: a[0] }, { id: b[0] }));
-                
-                            // Crea un nuevo objeto a partir del arreglo ordenado de pares clave-valor
-                            const sortedCollections = Object.fromEntries(collectionEntries);
-                
-                            for (const collectionKey in sortedCollections) {
-                                if (sortedCollections.hasOwnProperty(collectionKey)) {
-                                    const sortedQuestions = [...sortedCollections[collectionKey]].sort(customSortQuestions);
-                                    sortedCollections[collectionKey] = sortedQuestions;
-                                }
-                            }
-                            setCollections(sortedCollections);
-                        }
-                    });
-                } else {
-                    res.text().then(msg => console.log(msg));
-                }
-            }).catch(error => {
-                console.log(error);
-            });
-
-        }
-         // eslint-disable-next-line
-    }, [status]);
-
-    const handleSessionCreated = (newSession) => {
-        setSessions([...sessions, newSession]);
-    }
-
     function customSortCollections(a, b) {
         const getIdNumber = (str) => parseInt(str.split('_')[1]);
 
@@ -117,6 +42,86 @@ export default function AdminView() {
         const bPromptNumber = getIdNumber(b);
 
         return aPromptNumber - bPromptNumber;
+    }
+    // Función para realizar una solicitud POST
+    async function fetchSessionData() {
+        const response = await fetch(`/api/session`, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                user: username,
+                pass: password
+            })
+        });
+
+        if (response.status === 200) {
+            return await response.json();
+        } else {
+            const errorMsg = await response.text();
+            throw new Error(errorMsg);
+        }
+    }
+
+    // Función para realizar una solicitud GET
+    async function fetchCollectionData() {
+        const response = await fetch(`/api/collection`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+            }
+        });
+
+        if (response.status === 200) {
+            return await response.json();
+        } else {
+            const errorMsg = await response.text();
+            throw new Error(errorMsg);
+        }
+    }
+
+    // Lógica para ordenar las colecciones y preguntas
+    function processCollections(data) {
+        const collectionEntries = Object.entries(data);
+        collectionEntries.sort((a, b) => customSortCollections({ id: a[0] }, { id: b[0] }));
+
+        const sortedCollections = Object.fromEntries(collectionEntries);
+
+        for (const collectionKey in sortedCollections) {
+            if (sortedCollections.hasOwnProperty(collectionKey)) {
+                const sortedQuestions = [...sortedCollections[collectionKey]].sort(customSortQuestions);
+                sortedCollections[collectionKey] = sortedQuestions;
+            }
+        }
+
+        return sortedCollections;
+    }
+
+    useEffect(() => {
+        async function fetchData() {
+            if (status != null) {
+                try {
+                    const sessionData = await fetchSessionData();
+                    setSessions(sessionData);
+
+                    const collectionData = await fetchCollectionData();
+                    if (collectionData) {
+                        const sortedCollections = processCollections(collectionData);
+                        setCollections(sortedCollections);
+                    }
+                } catch (error) {
+                    console.log(error);
+                }
+            }
+        }
+
+        fetchData();
+    }, [status]);
+
+    const handleSessionCreated = (newSession) => {
+        setSessions([...sessions, newSession]);
     }
     return (
         <Container component="main" maxWidth="l">
@@ -146,10 +151,9 @@ export default function AdminView() {
                     collections={collections}
                     sessions={sessions}
                     onSessionCreated={handleSessionCreated}
-                ></AdminInterface>
+                />
             </Box>
         </Container>
-
-
     );
 }
+

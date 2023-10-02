@@ -7,7 +7,7 @@ import { Typography } from "@mui/material";
 
 
 export default function DebugBoardView() {
-  const answers = Array.from({length: 5}, (_, i) => `Answer ${i}`);
+  const answers = Array.from({length: 6}, (_, i) => `Answer ${i}`);
   const [positionText, setPositionText] = useState('[0, 0] => []');
   const [userMagnetPosition, setUserMagnetPosition] = useState({x: 0, y: 0, norm: Array(answers.length).fill(0)});
   const [peerMagnetPositions, setPeerMagnetPositions] = useState([Array(answers.length).fill(0)]);

@@ -59,18 +59,10 @@ class Session {
                 return;
             }
 
-            // const sessionId = topic_data[2];
-            // if (sessionId !== this.sessionId) {
-            //     console.log(`[MQTT] Unknown session ID '${sessionId}'`);
-            //     return;
-            // }
-
             if (topic_data[3] === 'control') {
-                if (parseInt(this.participantId) !== 0){
+                if (parseInt(participantId) !== 0 || parseInt(sessionId) === parseInt(topic_data[2])) {
                     controlCallback(JSON.parse(message));
-                }else if (parseInt(this.sessionId) === parseInt(topic_data[2])){
-                    controlCallback(JSON.parse(message));
-                }
+                  }
             }
             else if (topic_data[3] === 'updates') {
                 if (topic_data.length !== 5) {

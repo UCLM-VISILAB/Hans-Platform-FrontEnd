@@ -25,6 +25,88 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
 
   useEffect(() => {
     window.addEventListener('beforeunload', onLeaveSessionClick);
+    fetchSessionData(sessionId);
+
+    sessionRef.current = new Session(sessionId, participantId,
+      handleControlMessage,
+      (participantId, updateMessage) => {
+        if (participantId !== 0) {
+          setPeerMagnetPositions((peerPositions) => {
+            return {
+              ...peerPositions,
+              [participantId]: updateMessage.data.position
+            }
+          });
+        }
+      }
+    );
+    // eslint-disable-next-line
+  }, [sessionId, participantId]);
+
+  function handleSetupMessage(controlMessage) {
+    if (sessionStatus.current !== SessionStatus.Active) {
+      if (controlMessage.question_id === null) {
+        setQuestion({ status: QuestionStatus.Undefined });
+      } else if (controlMessage.collection !== null) {
+        setQuestion({
+          status: QuestionStatus.Loading,
+          collection: controlMessage.collection_id,
+          id: controlMessage.question_id,
+        });
+      }
+    }
+  }
+
+  function handleStartMessage(controlMessage) {
+    sessionStatus.current = SessionStatus.Active;
+    setTargetDateCountdown((Date.now() + (controlMessage.duration - 0.5) * 1000));
+  }
+
+  function handleStartedMessage(controlMessage) {
+    if (sessionStatus.current !== SessionStatus.Active) {
+      setTargetDateCountdown(Date.now() + ((controlMessage.duration - 0.5) * 1000));
+      sessionStatus.current = SessionStatus.Active;
+      if (controlMessage.positions) {
+        for (const participant in controlMessage.positions) {
+          if (participant !== participantId) {
+            const usablePeerPositions = controlMessage.positions[participant].map(parseFloat);
+            setPeerMagnetPositions((peerPositions) => {
+              return {
+                ...peerPositions,
+                [participant]: usablePeerPositions,
+              };
+            });
+          }
+        }
+      }
+    }
+  }
+
+  function handleStopMessage() {
+    sessionStatus.current = SessionStatus.Waiting;
+    setUserMagnetPosition({ x: 0, y: 0, norm: [] });
+    setPeerMagnetPositions({});
+  }
+  function handleControlMessage(controlMessage) {
+    switch (controlMessage.type) {
+      case 'setup':
+        handleSetupMessage(controlMessage);
+        break;
+      case 'start':
+        handleStartMessage(controlMessage);
+        break;
+      case 'started':
+        handleStartedMessage(controlMessage);
+        break;
+      case 'stop':
+        handleStopMessage();
+        break;
+      default:
+        break;
+    }
+  }
+
+  function fetchSessionData(sessionId) {
     fetch(
       `/api/session/${sessionId}`,
       {
@@ -35,7 +117,7 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
       }
     ).then(res => {
       if (res.status === 200) {
-        sessionStatus.current=SessionStatus.Waiting;
+        sessionStatus.current = SessionStatus.Waiting;
         res.json().then(data => {
           if (data.question_id && data.collection_id) {
             setQuestion({
@@ -51,71 +133,7 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
     }).catch(error => {
       console.log(error);
     });
-
-    sessionRef.current = new Session(sessionId, participantId,
-      (controlMessage) => {
-        switch (controlMessage.type) {
-          case 'setup': {
-            if (sessionStatus.current !== SessionStatus.Active) {
-              if (controlMessage.question_id === null) {
-                setQuestion({ status: QuestionStatus.Undefined });
-              } else if (controlMessage.collection !== null) {
-                  setQuestion({
-                    status: QuestionStatus.Loading,
-                    collection: controlMessage.collection_id,
-                    id: controlMessage.question_id,
-                  });
-                }
-              }
-            break;
-          }
-          case 'start': {
-            sessionStatus.current=SessionStatus.Active;
-            setTargetDateCountdown((Date.now() + (controlMessage.duration - 0.5) * 1000))
-            break;
-          }
-          case 'started': {
-            if(sessionStatus.current!==SessionStatus.Active){
-              setTargetDateCountdown(Date.now() + ((controlMessage.duration - 0.5) * 1000))
-              sessionStatus.current=SessionStatus.Active;
-              if (controlMessage.positions) {
-                for (const participant in controlMessage.positions) {
-                  if (participant !== participantId) {
-                    const usablePeerPositions = controlMessage.positions[participant].map(parseFloat);
-                    setPeerMagnetPositions((peerPositions) => {
-                      return {
-                        ...peerPositions,
-                        [participant]: usablePeerPositions
-                      };
-                    });
-                  }
-                }
-              }
-            }
-            break;
-          }
-          case 'stop': {
-            sessionStatus.current=SessionStatus.Waiting;
-            setUserMagnetPosition({ x: 0, y: 0, norm: [] })
-            setPeerMagnetPositions({});
-            break;
-          }
-          default: break;
-        }
-      },
-      (participantId, updateMessage) => {
-        if (participantId !== 0) {
-          setPeerMagnetPositions((peerPositions) => {
-            return {
-              ...peerPositions,
-              [participantId]: updateMessage.data.position
-            }
-          });
-        }
-      }
-    );
-    // eslint-disable-next-line
-  }, [sessionId, participantId]);
+  }
 
   useEffect(() => {
     let ignore = false;
@@ -142,7 +160,7 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
               });
               setTimeout(() => {
                 sessionRef.current.publishControl({ type: 'ready', participant: participantId, session: sessionId });
-              }, 100); 
+              }, 100);
             }
           });
         } else {
@@ -174,27 +192,12 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
     // eslint-disable-next-line
   }, [userMagnetPosition, peerMagnetPositions])
 
-  // DEBUG-ONLY
-  /*useEffect(() => {
-    // The component was drawn for the first time, configure a 1-second interval to simulate peer updates
-    const interval = setInterval(() => {
-      setPeerMagnetPositions(peerPositions => peerPositions.map(
-        peerPosition => 
-          ((question.status === QuestionStatus.Loaded) && (peerPosition.length !== question.answers.length))
-          ? new Array(question.answers.length).fill(0).map(_ => Math.random())
-          : peerPosition.map(
-            value => Math.min(1.1, Math.max(0, value + (Math.random() - 0.5) * 0.1))
-          )
-      ));
-    }, 100);
-    return () => clearInterval(interval);
-  }, [question]);*/
-
   const onUserMagnetMove = (position) => {
     if (sessionStatus.current !== SessionStatus.Active) return;
-    let sumPositions = 0
-    for (let i = 0; i < position.norm.length; i++)
-      sumPositions += position.norm[i];
+    let sumPositions = 0;
+    for (const value of position.norm) {
+      sumPositions += value;
+    }
     if (sumPositions > 1) {
       for (let i = 0; i < position.norm.length; i++)
         position.norm[i] = position.norm[i] / sumPositions;

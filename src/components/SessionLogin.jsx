@@ -111,7 +111,7 @@ export default function SessionLogin({ username = null, onJoinSession=()=>{} }) 
               }
             >
               <AlertTitle><b>{error ?  error.title : "Error"}</b></AlertTitle>
-              {error && error.msg}
+              {error?.msg}
             </Alert>
           </Collapse>
         </Box>

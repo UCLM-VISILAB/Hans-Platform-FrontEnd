@@ -112,7 +112,7 @@ export default function AdminLogin({ username = null, password=null, status=null
               }
             >
               <AlertTitle><b>{error ?  error.title : "Error"}</b></AlertTitle>
-              {error && error.msg}
+              {error?.msg}
             </Alert>
           </Collapse>
         </Box>

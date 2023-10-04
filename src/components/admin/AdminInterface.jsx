@@ -89,7 +89,6 @@ export default function AdminInterface({ username, password, collections, sessio
 
   useEffect(() => {
     if (selectedSession.id !== 0) {
-      console.log("Llamada desde 92");
       getParticipantsBySession();
       initializeSession(selectedSession);
     }
@@ -110,7 +109,6 @@ export default function AdminInterface({ username, password, collections, sessio
       if (selectedSession.id === Number(controlMessage.session)) {
         switch (controlMessage.type) {
           case 'join':
-            console.log("Llamada desde 99");
             getParticipantsBySession();
             break;
           case 'ready':
@@ -121,11 +119,9 @@ export default function AdminInterface({ username, password, collections, sessio
                 positions: usersMagnetPositions.current
               });
             }
-            console.log("Llamada desde 106");
             getParticipantsBySession();
             break;
           case 'leave':
-            console.log("Llamada desde 110");
             getParticipantsBySession();
             break;
           default:
@@ -137,9 +133,20 @@ export default function AdminInterface({ username, password, collections, sessio
 
   function handleParticipantUpdate(participantId, updateMessage) {
     if (participantId !== 0) {
+      let position=[0,0,0,0,0,0];
+      let sumPositions = 0;
+      for (const value of updateMessage.data.position) {
+        sumPositions += value;
+      }
+      if (sumPositions > 1) {
+        for (let i = 0; i < updateMessage.data.position.length; i++)
+          position[i] = updateMessage.data.position[i] / sumPositions;
+      }else{
+        position=updateMessage.data.position;
+      }
       const newPosition = {
         ...usersMagnetPositions.current,
-        [participantId]: updateMessage.data.position
+        [participantId]: position
       };
       setPeerMagnetPositions(newPosition);
       usersMagnetPositions.current = newPosition;

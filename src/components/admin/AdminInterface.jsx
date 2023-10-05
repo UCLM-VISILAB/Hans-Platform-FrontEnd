@@ -27,7 +27,15 @@ export default function AdminInterface({ username, password, collections, sessio
   useEffect(() => {
     if (sessions && sessions.length > 0) {
       setSelectedSession(sessions[0]);
+      fetchQuestion(sessions[0].collection_id, sessions[0].question_id)
+      .then(questionData => {
+        setActiveQuestion(questionData);
+      })
+      .catch(error => {
+        console.log(error);
+      });
     }
+    // eslint-disable-next-line
   }, [sessions]);
 
   useEffect(() => {
@@ -418,7 +426,7 @@ export default function AdminInterface({ username, password, collections, sessio
           <label>Duration:</label>
           <input type="text" value={selectedSession ? selectedSession.duration : ""} onChange={e => setSelectedSession({ ...selectedSession, duration: e.target.value })} />
           <label>Collection:</label>
-          <select onChange={handleCollectionChange} disabled={waitingCountDown}>
+          <select onChange={handleCollectionChange} disabled={waitingCountDown} value={selectedSession.collection_id}>
             {collections && Object.keys(collections).map(collectionKey => (
               <option key={collectionKey} value={collectionKey}>
                 {collectionKey}
@@ -426,7 +434,7 @@ export default function AdminInterface({ username, password, collections, sessio
             ))}
           </select>
           <label>Question:</label>
-          <select onChange={handleQuestionChange} disabled={waitingCountDown}>
+          <select onChange={handleQuestionChange} disabled={waitingCountDown} value={selectedSession.question_id}>
             {collections?.[selectedSession.collection_id]?.map(collectionQuestion => (
               <option key={collectionQuestion} value={collectionQuestion}>
                 {collectionQuestion}

@@ -26,21 +26,10 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
   useEffect(() => {
     window.addEventListener('beforeunload', onLeaveSessionClick);
     fetchSessionData(sessionId);
-
     sessionRef.current = new Session(sessionId, participantId,
       handleControlMessage,
-      (participantId, updateMessage) => {
-        if (participantId !== 0) {
-          setPeerMagnetPositions((peerPositions) => {
-            return {
-              ...peerPositions,
-              [participantId]: updateMessage.data.position
-            }
-          });
-        }
-      }
-    );
-    // eslint-disable-next-line
+      handleParticipantUpdate);
+      // eslint-disable-next-line
   }, [sessionId, participantId]);
 
   function handleSetupMessage(controlMessage) {
@@ -103,6 +92,22 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
         break;
       default:
         break;
+    }
+  }
+  function handleParticipantUpdate(participantId, updateMessage) {
+    if (participantId !== 0) {
+      // Calcula la nueva posición
+      let position = [...updateMessage.data.position]; // Copia la posición actual
+      let sumPositions = position.reduce((sum, value) => sum + value, 0);
+      if (sumPositions > 1) {
+        // Normaliza la posición si es necesario
+        position = position.map(value => value / sumPositions);
+      }
+      // Actualiza el estado solo si ha habido cambios
+      setPeerMagnetPositions(prevPositions => ({
+        ...prevPositions,
+        [participantId]: position
+      }));
     }
   }
 
@@ -204,7 +209,6 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
       const hoy = new Date(tiempoTranscurrido);
       sessionRef.current.publishUpdate({ data: { position: position.norm, timeStamp: hoy.toISOString() } });
     }
-
   };
 
   const onLeaveSessionClick = () => {

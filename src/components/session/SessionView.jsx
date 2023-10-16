@@ -103,10 +103,14 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
         // Normaliza la posición si es necesario
         position = position.map(value => value / sumPositions);
       }
+      const participantPosition = {
+        id: participantId,
+        position: position
+      };
       // Actualiza el estado solo si ha habido cambios
       setPeerMagnetPositions(prevPositions => ({
         ...prevPositions,
-        [participantId]: position
+        [participantId]: participantPosition
       }));
     }
   }
@@ -181,21 +185,18 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
 
   useEffect(() => {
     // Update central Cue based on magnet positions
-    if (peerMagnetPositions && peerMagnetPositions.length !== 0) {
-      const usablePeerPositions = Object.keys(peerMagnetPositions).map(
-        k => peerMagnetPositions[k]
-      ).filter(peerPosition => peerPosition.length === question.answers.length);
+    if (peerMagnetPositions && Object.keys(peerMagnetPositions).length !== 0) {
+      const usablePeerPositions = Object.keys(peerMagnetPositions).map((k) => peerMagnetPositions[k]).filter((peerPosition) => peerPosition.position.length === question.answers.length);
       setCentralCuePosition(
         usablePeerPositions.reduce(
-          (cuePosition, peerPosition) => cuePosition.map(
-            (value, i) => value + peerPosition[i]
-          ),
+          (cuePosition, peerPosition) =>
+            cuePosition.map((value, i) => value + peerPosition.position[i]),
           userMagnetPosition.norm
-        ).map(value => value / (1 + usablePeerPositions.length))
+        ).map((value) => value / (1 + usablePeerPositions.length))
       );
     }
     // eslint-disable-next-line
-  }, [userMagnetPosition, peerMagnetPositions])
+  }, [userMagnetPosition, peerMagnetPositions]);
 
   const onUserMagnetMove = (position) => {
     if (sessionStatus.current !== SessionStatus.Active) return;
@@ -212,9 +213,6 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
   };
 
   const onLeaveSessionClick = () => {
-    // TODO: User should double-check the intention to logout (showing a modal when the leave/logout button is pressed)
-    // TODO: The server should be notified about the user leaving the session:
-    //sessionRef.current.leave()
     fetch(
       `/api/session/${sessionId}/participants/${participantId}`,
       {

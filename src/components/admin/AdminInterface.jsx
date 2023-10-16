@@ -16,8 +16,8 @@ export default function AdminInterface({ username, password, collections, sessio
   const [waitingCountDown, setWaitingCountDown] = useState(false);
   const [activeQuestion, setActiveQuestion] = useState({});
   const [userMagnetPosition] = useState({ x: 0, y: 0, norm: [] });
-  const [peerMagnetPositions, setPeerMagnetPositions] = useState({});
-  const usersMagnetPositions = useRef({});
+  const [peerMagnetPositions, setPeerMagnetPositions] = useState([]);
+  const usersMagnetPositions = useRef([]);
   const [centralCuePosition, setCentralCuePosition] = useState([]);
   const [targetDateCountdown, setTargetDateCountdown] = useState('2023-04-01T00:00:00Z');
   const targetDate = useRef('2023-04-01T00:00:00Z');
@@ -28,12 +28,12 @@ export default function AdminInterface({ username, password, collections, sessio
     if (sessions && sessions.length > 0) {
       setSelectedSession(sessions[0]);
       fetchQuestion(sessions[0].collection_id, sessions[0].question_id)
-      .then(questionData => {
-        setActiveQuestion(questionData);
-      })
-      .catch(error => {
-        console.log(error);
-      });
+        .then(questionData => {
+          setActiveQuestion(questionData);
+        })
+        .catch(error => {
+          console.log(error);
+        });
     }
     // eslint-disable-next-line
   }, [sessions]);
@@ -141,39 +141,48 @@ export default function AdminInterface({ username, password, collections, sessio
 
   function handleParticipantUpdate(participantId, updateMessage) {
     if (participantId !== 0) {
-      let position=[0,0,0,0,0,0];
-      let sumPositions = 0;
-      for (const value of updateMessage.data.position) {
-        sumPositions += value;
-      }
+      let position = updateMessage.data.position;
+      let sumPositions = position.reduce((acc, value) => acc + value, 0);
       if (sumPositions > 1) {
-        for (let i = 0; i < updateMessage.data.position.length; i++)
-          position[i] = updateMessage.data.position[i] / sumPositions;
-      }else{
-        position=updateMessage.data.position;
+        position = position.map(value => value / sumPositions);
       }
-      const newPosition = {
-        ...usersMagnetPositions.current,
-        [participantId]: position
+
+      // Crea un objeto clave-valor para representar la posición del participante.
+      const participantPosition = {
+        id: participantId,
+        position: position
       };
-      setPeerMagnetPositions(newPosition);
-      usersMagnetPositions.current = newPosition;
+
+      // Actualiza el estado de usersMagnetPositions añadiendo o reemplazando el objeto
+      // correspondiente al participante.
+      const updatedPositions = { ...usersMagnetPositions.current };
+
+      // Reemplaza el objeto existente o agrega uno nuevo si es un nuevo participante.
+      updatedPositions[participantId] = participantPosition;
+      usersMagnetPositions.current = updatedPositions;
+      setPeerMagnetPositions(updatedPositions);
     }
   }
 
   useEffect(() => {
-    // Update central Cue based on magnet positions
-    if (peerMagnetPositions && Object.keys(peerMagnetPositions).length > 1) {
-      const usablePeerPositions = Object.keys(peerMagnetPositions).map(
-        k => peerMagnetPositions[k]
-      ).filter(peerPosition => peerPosition.length === activeQuestion.answers.length);
-      setCentralCuePosition(
-        usablePeerPositions.reduce(
-          (cuePosition, peerPosition) => cuePosition.map(
-            (value, i) => value + peerPosition[i]
-          )
-        ).map(value => value / (usablePeerPositions.length))
-      );
+    // Create an array of all valid participant positions
+    const validPositions = Object.values(usersMagnetPositions.current)
+      .filter((position) => position.position.length === activeQuestion.answers.length);
+  
+    if (validPositions.length > 0) {
+      // Initialize an array to store the sum of positions
+      const sumPositions = Array(validPositions[0].position.length).fill(0);
+  
+      // Calculate the sum of positions
+      validPositions.forEach((participantPosition) => {
+        for (let i = 0; i < participantPosition.position.length; i++) {
+          sumPositions[i] += participantPosition.position[i];
+        }
+      });
+  
+      // Calculate the central cue position by averaging the sum of positions
+      const centralCue = sumPositions.map((sum) => sum / validPositions.length);
+      setCentralCuePosition(centralCue);
     }
     // eslint-disable-next-line
   }, [peerMagnetPositions]);
@@ -225,8 +234,8 @@ export default function AdminInterface({ username, password, collections, sessio
     }));
   }
   const handleQuestionChange = (event) => {
-    usersMagnetPositions.current = {};
-    setPeerMagnetPositions({});
+    usersMagnetPositions.current = [];
+    setPeerMagnetPositions([]);
     setSelectedSession({ ...selectedSession, question_id: event.target.value });
     setStatusJoinParticipants();
     fetchQuestion(selectedSession.collection_id, event.target.value)
@@ -243,8 +252,8 @@ export default function AdminInterface({ username, password, collections, sessio
       });
   }
   const handleCollectionChange = (event) => {
-    usersMagnetPositions.current = {};
-    setPeerMagnetPositions({});
+    usersMagnetPositions.current = [];
+    setPeerMagnetPositions([]);
     setSelectedSession({ ...selectedSession, collection_id: event.target.value, question_id: collections[event.target.value][0] });
     setStatusJoinParticipants();
     fetchQuestion(event.target.value, collections[event.target.value][0])
@@ -277,8 +286,8 @@ export default function AdminInterface({ username, password, collections, sessio
   const startSession = (event) => {
     if (!waitingCountDown) {
       sessionStatus.current = SessionStatus.Active;
-      usersMagnetPositions.current = {};
-      setPeerMagnetPositions({});
+      usersMagnetPositions.current = [];
+      setPeerMagnetPositions([]);
       setCentralCuePosition([0, 0, 0, 0, 0, 0]);
       currentSession.current.publishControl({ type: 'start', duration: selectedSession.duration });
       targetDate.current = (Date.now() + selectedSession.duration * 1000 + 200);
@@ -446,7 +455,7 @@ export default function AdminInterface({ username, password, collections, sessio
         <div className="startsession">
           <button onClick={startSession}>{waitingCountDown ? "Stop" : "Start"}</button>
           <label>Ready: {participantList ? participantList.filter(participant => participant.status === 'ready').length : 0}/{participantList ? participantList.length : 0}</label>
-          <textarea className="inputParticipant" readOnly value={participantList ? participantList.map(p => `${p.username} -> ${p.status}`).join("\n") : "Sin participantes todavía"} />
+          <textarea className="inputParticipant" readOnly value={participantList ? participantList.map(p => `${p.id}.-${p.username} -> ${p.status}`).join("\n") : "Sin participantes todavía"} />
         </div>
       </div>
 

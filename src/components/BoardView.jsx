@@ -1,4 +1,4 @@
-import { React, useRef } from "react";
+import React, { useRef } from "react";
 
 export default function BoardView({
   answers,
@@ -39,26 +39,14 @@ export default function BoardView({
   };
   const normalizePosition = (point) => {
     if (answerPoints.length < 2) return new Array(answerPoints.length).fill(0);
-    // La posición se normaliza descomponiendo el punto en las dos respuestas más cercanas
-    // Siendo `v1 = (a, b)` y `v2 = (c, d)` los vectores que representan las dos respuestas más cercanas
-    // Sus pesos se calculan resolviendo el siguiente sistema de ecuaciones:
-    //    a * w1 + b * w2 = x
-    //    c * w1 + d * w2 = y
-
-    // Obtener los índices de las dos respuestas más cercanas
     let closestAnswerIndices = getClosestAnswers(point);
-
-    // Obtener los valores (X, Y) de los vectores correspondientes a esas respuestas
     let a = answerPoints[closestAnswerIndices[0]].x,
       b = answerPoints[closestAnswerIndices[0]].y;
     let c = answerPoints[closestAnswerIndices[1]].x,
       d = answerPoints[closestAnswerIndices[1]].y;
-
-    // Asignar los pesos calculados a las posiciones respectivas en la posición normalizada
     let norm = new Array(answers.length).fill(0);
     const denominator = c * b - a * d;
     if (denominator === 0) {
-      // Sucederá en algunos casos (es decir, cuando hay 2 respuestas y los vectores de respuesta son paralelos)
       norm[closestAnswerIndices[0]] = point.y / b;
     } else {
       norm[closestAnswerIndices[0]] = -(d * point.x - c * point.y) / denominator;
@@ -148,18 +136,31 @@ export default function BoardView({
         strokeWidth="2"
       />
       {/*Rectángulo que marca las respuestas de otros participantes*/}
-      <g transform={`translate(-${halfMagnetSize}, -${halfMagnetSize})`}>
-        {peerMagnetPositions?.map(normPosition => denormalizePosition(normPosition)).map((point, i) => (
-          <rect
-            key={`rect-${i}`}
-            x={point.x}
-            y={point.y}
-            width={magnetSize}
-            height={magnetSize}
-            fill="#000000AA"
-          />
-        ))}
-      </g>
+      {peerMagnetPositions &&
+        peerMagnetPositions.map((participant, i) => {
+          const denormalizedPosition = denormalizePosition(participant.position);
+          return (
+            <g key={i}>
+              <rect
+                x={denormalizedPosition.x}
+                y={denormalizedPosition.y}
+                width={magnetSize}
+                height={magnetSize}
+                fill="#000000AA"
+              />
+              <text
+                x={denormalizedPosition.x + magnetSize*1.2}
+                y={denormalizedPosition.y}
+                fontSize="50"
+                fill="black"
+                textAnchor="start"
+                dominantBaseline="middle"
+              >
+                {participant.id}
+              </text>
+            </g>
+          );
+        })}
       {/* DEBUG VISUALIZATION (closest answers & arrows indicating answer relevance) */}
       {debugView && answerPoints.length >= 2 && (
         <g>

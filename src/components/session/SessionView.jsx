@@ -22,6 +22,7 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
   const [peerMagnetPositions, setPeerMagnetPositions] = useState({});
   const [centralCuePosition, setCentralCuePosition] = useState([]);
   const [targetDateCountdown, setTargetDateCountdown] = useState('2023-04-01T00:00:00Z');
+  const answerWeight = useRef(null)
 
   useEffect(() => {
     window.addEventListener('beforeunload', onLeaveSessionClick);
@@ -29,7 +30,7 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
     sessionRef.current = new Session(sessionId, participantId,
       handleControlMessage,
       handleParticipantUpdate);
-      // eslint-disable-next-line
+    // eslint-disable-next-line
   }, [sessionId, participantId]);
 
   function handleSetupMessage(controlMessage) {
@@ -47,34 +48,25 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
   }
 
   function handleStartMessage(controlMessage) {
+    setPeerMagnetPositions({});
     sessionStatus.current = SessionStatus.Active;
+    answerWeight.current = 1.4
     setTargetDateCountdown((Date.now() + (controlMessage.duration - 0.5) * 1000));
   }
 
   function handleStartedMessage(controlMessage) {
+    setPeerMagnetPositions({});
     if (sessionStatus.current !== SessionStatus.Active) {
       setTargetDateCountdown(Date.now() + ((controlMessage.duration - 0.5) * 1000));
       sessionStatus.current = SessionStatus.Active;
-      if (controlMessage.positions) {
-        for (const participant in controlMessage.positions) {
-          if (participant !== participantId) {
-            const usablePeerPositions = controlMessage.positions[participant].map(parseFloat);
-            setPeerMagnetPositions((peerPositions) => {
-              return {
-                ...peerPositions,
-                [participant]: usablePeerPositions,
-              };
-            });
-          }
-        }
-      }
+      answerWeight.current = 1.4
+      setPeerMagnetPositions(controlMessage.positions);
     }
   }
 
   function handleStopMessage() {
     sessionStatus.current = SessionStatus.Waiting;
     setUserMagnetPosition({ x: 0, y: 0, norm: [] });
-    setPeerMagnetPositions({});
   }
   function handleControlMessage(controlMessage) {
     switch (controlMessage.type) {
@@ -206,9 +198,13 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
     }
     if (sumPositions < 1) {
       setUserMagnetPosition(position);
+      let adjustedPosition = position.norm.map((pos) => pos * answerWeight.current);
+      if (answerWeight.current > 0.5) {
+        answerWeight.current -= 0.007;
+      }
       const tiempoTranscurrido = Date.now();
       const hoy = new Date(tiempoTranscurrido);
-      sessionRef.current.publishUpdate({ data: { position: position.norm, timeStamp: hoy.toISOString() } });
+      sessionRef.current.publishUpdate({ data: { position: adjustedPosition, timeStamp: hoy.toISOString() } });
     }
   };
 

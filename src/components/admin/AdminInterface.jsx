@@ -123,7 +123,7 @@ export default function AdminInterface({ username, password, collections, sessio
             if (sessionStatus.current === SessionStatus.Active) {
               currentSession.current.publishControl({
                 type: 'started',
-                duration: (targetDate.current - new Date()) / 1000,
+                duration: ((targetDate.current - new Date()) / 1000)-2,
                 positions: usersMagnetPositions.current
               });
             }
@@ -289,7 +289,7 @@ export default function AdminInterface({ username, password, collections, sessio
       usersMagnetPositions.current = [];
       setPeerMagnetPositions([]);
       setCentralCuePosition([0, 0, 0, 0, 0, 0]);
-      currentSession.current.publishControl({ type: 'start', duration: selectedSession.duration });
+      currentSession.current.publishControl({ type: 'start', duration: selectedSession.duration - 1 });
       targetDate.current = (Date.now() + selectedSession.duration * 1000 + 200);
       setTargetDateCountdown(targetDate.current);
 

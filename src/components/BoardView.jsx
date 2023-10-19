@@ -9,9 +9,7 @@ export default function BoardView({
   debugView = false,
 }) {
   const svg = useRef();
-
   const magnetSize = 30;
-  const halfMagnetSize = magnetSize / 2;
   const answersRadius = 340;
   const answersTextRadius = answersRadius + 25;
   let answerPoints = [];

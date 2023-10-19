@@ -198,9 +198,12 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
     }
     if (sumPositions < 1) {
       setUserMagnetPosition(position);
-      let adjustedPosition = position.norm.map((pos) => pos * answerWeight.current);
+      let adjustedPosition = position.norm;
       if (answerWeight.current > 0.5) {
         answerWeight.current -= 0.007;
+      }
+      if (answerWeight.current < 1 && answerWeight.current > 0.5){
+        adjustedPosition = position.norm.map((pos) => pos * answerWeight.current);
       }
       const tiempoTranscurrido = Date.now();
       const hoy = new Date(tiempoTranscurrido);

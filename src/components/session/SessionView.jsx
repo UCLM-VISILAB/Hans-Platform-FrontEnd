@@ -55,8 +55,9 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
   }
 
   function handleStartedMessage(controlMessage) {
-    setPeerMagnetPositions({});
     if (sessionStatus.current !== SessionStatus.Active) {
+      setPeerMagnetPositions({});
+      console.log(controlMessage.positions)
       setTargetDateCountdown(Date.now() + ((controlMessage.duration - 0.5) * 1000));
       sessionStatus.current = SessionStatus.Active;
       answerWeight.current = 1.4
@@ -178,6 +179,7 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
   useEffect(() => {
     // Update central Cue based on magnet positions
     if (peerMagnetPositions && Object.keys(peerMagnetPositions).length !== 0) {
+      console.log(peerMagnetPositions);
       const usablePeerPositions = Object.keys(peerMagnetPositions).map((k) => peerMagnetPositions[k]).filter((peerPosition) => peerPosition.position.length === question.answers.length);
       setCentralCuePosition(
         usablePeerPositions.reduce(
@@ -202,7 +204,7 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
       if (answerWeight.current > 0.5) {
         answerWeight.current -= 0.007;
       }
-      if (answerWeight.current < 1 && answerWeight.current > 0.5){
+      if (answerWeight.current < 1 && answerWeight.current > 0.4){
         adjustedPosition = position.norm.map((pos) => pos * answerWeight.current);
       }
       const tiempoTranscurrido = Date.now();

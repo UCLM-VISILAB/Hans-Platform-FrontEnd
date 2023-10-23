@@ -123,7 +123,7 @@ export default function AdminInterface({ username, password, collections, sessio
             if (sessionStatus.current === SessionStatus.Active) {
               currentSession.current.publishControl({
                 type: 'started',
-                duration: ((targetDate.current - new Date()) / 1000)-2,
+                duration: ((targetDate.current - new Date()) / 1000)-1,
                 positions: usersMagnetPositions.current
               });
             }

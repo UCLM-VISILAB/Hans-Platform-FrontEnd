@@ -3,6 +3,7 @@
     height: 100vh;
     justify-content: center;
     align-items: center;
+    margin-top: 10px;
   }
   
   .admin-interface  .left-column {
@@ -14,6 +15,8 @@
     background-color: #f2f2f2;
     width: 30%;
     height: 100%;
+    box-shadow: 4px 5px 20px 5px #b5b4b4;
+    border-radius: 15px;
   }
   
   .admin-interface  .sessiondetails {
@@ -112,5 +115,7 @@
     width: 50%;
     padding: 3%;
     background-color: #f2f2f2;
+    box-shadow: -4px 5px 20px 5px#b5b4b4;
+    border-radius: 15px;
   }
   

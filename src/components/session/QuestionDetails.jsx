@@ -38,6 +38,7 @@ export default function QuestionDetails({ image, prompt }) {
       sx={{
         display: 'flex',  
         flexDirection: 'column',
+        alignItems:'center'
       }}
     >
       <img

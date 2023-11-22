@@ -61,29 +61,46 @@ export default function BoardView({
         y: answerPoints.map((answerPoint, i) => answerPoint.y * position[i]).reduce((sum, val) => sum + val),
       };
 
-  const startDrag = (event) => {
-    event.preventDefault();
-
-    const mousemove = (event) => {
-      event.preventDefault();
-
-      let cursorPoint = svg.current.createSVGPoint();
-      cursorPoint.x = event.clientX;
-      cursorPoint.y = event.clientY;
-      cursorPoint = cursorPoint.matrixTransform(svg.current.getScreenCTM().inverse());
-
-      const position = {
-        x: Math.min(Math.max(cursorPoint.x, -500), 500),
-        y: Math.min(Math.max(cursorPoint.y, -500), 500),
+      const startDrag = (event) => {
+        event.preventDefault();
+      
+        const moveHandler = (event) => {
+          event.preventDefault();
+      
+          let cursorPoint = getCursorPoint(event);
+          const position = {
+            x: Math.min(Math.max(cursorPoint.x, -500), 500),
+            y: Math.min(Math.max(cursorPoint.y, -500), 500),
+          };
+          onUserMagnetMove({ x: position.x, y: position.y, norm: normalizePosition(position) });
+        };
+      
+        const endHandler = () => {
+          document.removeEventListener("mousemove", moveHandler);
+          document.removeEventListener("touchmove", moveHandler);
+          document.removeEventListener("mouseup", endHandler);
+          document.removeEventListener("touchend", endHandler);
+        };
+      
+        document.addEventListener("mousemove", moveHandler);
+        document.addEventListener("touchmove", moveHandler);
+        document.addEventListener("mouseup", endHandler, { once: true });
+        document.addEventListener("touchend", endHandler, { once: true });
       };
-      onUserMagnetMove({ x: position.x, y: position.y, norm: normalizePosition(position) });
-    };
-
-    document.addEventListener("mousemove", mousemove);
-    document.addEventListener("mouseup", () => {
-      document.removeEventListener("mousemove", mousemove);
-    }, { once: true });
-  };
+      
+      const getCursorPoint = (event) => {
+        let cursorPoint;
+        if (event.touches && event.touches.length > 0) {
+          cursorPoint = svg.current.createSVGPoint();
+          cursorPoint.x = event.touches[0].clientX;
+          cursorPoint.y = event.touches[0].clientY;
+        } else {
+          cursorPoint = svg.current.createSVGPoint();
+          cursorPoint.x = event.clientX;
+          cursorPoint.y = event.clientY;
+        }
+        return cursorPoint.matrixTransform(svg.current.getScreenCTM().inverse());
+      };
 
   const cuePosition = denormalizePosition(centralCuePosition);
 
@@ -204,6 +221,7 @@ export default function BoardView({
         r={magnetSize / 2}
         fill="#FF0000"
         onMouseDown={startDrag}
+        onTouchStart={startDrag}
       />
     </svg>
   );

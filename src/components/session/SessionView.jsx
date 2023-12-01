@@ -1,11 +1,9 @@
-import { React, useRef, useState, useEffect } from "react";
-
+import React, { useRef, useState, useEffect } from "react";
 import Backdrop from '@mui/material/Backdrop';
-
 import Paper from '@mui/material/Paper';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-
+import Hidden from '@mui/material/Hidden';  // Importa el componente Hidden
 import CountDown from './Countdown';
 import SessionStatusView from './StatusView';
 import QuestionDetails from './QuestionDetails';
@@ -230,7 +228,6 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
     });
     onLeave();
   }
-
   return (
     <>
       <Backdrop
@@ -246,25 +243,27 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
       </Backdrop>
       <Box
         component="main"
-        height='100vh'
+        height='80vh'  // Set the height to 100% of the viewport height
         sx={{
           display: 'flex',
           flexDirection: 'column',
         }}
       >
-        <Paper
-          component="header"
-          elevation={2}
-          sx={{
-            m: 1,
-            p: 1,
-            borderRadius: 2
-          }}
-        >
-          <Typography component="h1" variant="h4" textAlign='center'>
-            {question.status === QuestionStatus.Loaded ? question.prompt : "Question not defined yet"}
-          </Typography>
-        </Paper>
+         <Hidden mdDown>
+          <Paper
+            component="header"
+            elevation={2}
+            sx={{
+              m: 1,
+              p: 1,
+              borderRadius: 2
+            }}
+          >
+            <Typography component="h1" variant="h4" textAlign='center'>
+              {question.status === QuestionStatus.Loaded ? question.prompt : "Question not defined yet"}
+            </Typography>
+          </Paper>
+        </Hidden>
         <Box
           sx={{
             flex: 1,

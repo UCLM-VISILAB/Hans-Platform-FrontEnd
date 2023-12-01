@@ -4,14 +4,17 @@ import Typography from '@mui/material/Typography';
 
 export default function QuestionDetails({ image, prompt }) {
   const [imageSize, setImageSize] = useState({ width: 'auto', height: 'auto' });
+  const [fontSize, setFontSize] = useState('1rem');
 
   useEffect(() => {
     const img = new Image();
     img.src = image;
 
     img.onload = () => {
-      const maxWidth = 300; // Establece el máximo ancho deseado
-      const maxHeight = 450; // Establece el máximo alto deseado
+      const maxHeightPercentage = 40; // Puedes ajustar este porcentaje según tus necesidades
+      const windowHeight = window.innerHeight;
+      const maxHeight = (windowHeight * maxHeightPercentage) / 100;
+
       const width = img.width;
       const height = img.height;
       let newWidth = width;
@@ -23,33 +26,38 @@ export default function QuestionDetails({ image, prompt }) {
         newWidth = width * ratio;
       }
 
-      if (newWidth > maxWidth) {
-        const ratio = maxWidth / newWidth;
-        newWidth = maxWidth;
-        newHeight = newHeight * ratio;
-      }
-
       setImageSize({ width: newWidth, height: newHeight });
+
+      // Calcular el tamaño de fuente proporcional a la altura de la pantalla
+      const fontSizePercentage = 5; // Puedes ajustar este porcentaje según tus necesidades
+      let calculatedFontSize = (windowHeight * fontSizePercentage) / 100;
+
+      // Establecer un límite superior para el tamaño de fuente
+      const maxFontSize = 25;
+      calculatedFontSize = Math.min(calculatedFontSize, maxFontSize);
+
+      setFontSize(`${calculatedFontSize}px`);
     };
   }, [image]);
 
   return (
     <Box
       sx={{
-        display: 'flex',  
+        display: 'flex',
         flexDirection: 'column',
-        alignItems:'center'
+        alignItems: 'center'
       }}
     >
       <img
-        src={image} 
+        src={image}
         alt="question 1"
         width={imageSize.width}
         height={imageSize.height}
+        style={{ maxWidth: '100%', height: 'auto' }}
       />
-      <Typography component="h4" variant="h6" textAlign='center'>
+      <Typography component="h4" variant="h6" textAlign='center' style={{ fontSize }}>
         <b>{prompt}</b>
       </Typography>
     </Box>
-  )
+  );
 }

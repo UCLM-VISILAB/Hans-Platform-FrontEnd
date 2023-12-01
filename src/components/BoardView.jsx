@@ -61,46 +61,51 @@ export default function BoardView({
         y: answerPoints.map((answerPoint, i) => answerPoint.y * position[i]).reduce((sum, val) => sum + val),
       };
 
-      const startDrag = (event) => {
+  const startDrag = (event) => {
+    // Evitar el scroll en el área del SVG
+    if (event.touches && event.touches.length === 1) {
+      setTimeout(() => {
         event.preventDefault();
-      
-        const moveHandler = (event) => {
-          event.preventDefault();
-      
-          let cursorPoint = getCursorPoint(event);
-          const position = {
-            x: Math.min(Math.max(cursorPoint.x, -500), 500),
-            y: Math.min(Math.max(cursorPoint.y, -500), 500),
-          };
-          onUserMagnetMove({ x: position.x, y: position.y, norm: normalizePosition(position) });
-        };
-      
-        const endHandler = () => {
-          document.removeEventListener("mousemove", moveHandler);
-          document.removeEventListener("touchmove", moveHandler);
-          document.removeEventListener("mouseup", endHandler);
-          document.removeEventListener("touchend", endHandler);
-        };
-      
-        document.addEventListener("mousemove", moveHandler);
-        document.addEventListener("touchmove", moveHandler);
-        document.addEventListener("mouseup", endHandler, { once: true });
-        document.addEventListener("touchend", endHandler, { once: true });
+      }, 0);
+    }
+
+    const moveHandler = (event) => {
+      event.preventDefault();
+
+      let cursorPoint = getCursorPoint(event);
+      const position = {
+        x: Math.min(Math.max(cursorPoint.x, -500), 500),
+        y: Math.min(Math.max(cursorPoint.y, -500), 500),
       };
-      
-      const getCursorPoint = (event) => {
-        let cursorPoint;
-        if (event.touches && event.touches.length > 0) {
-          cursorPoint = svg.current.createSVGPoint();
-          cursorPoint.x = event.touches[0].clientX;
-          cursorPoint.y = event.touches[0].clientY;
-        } else {
-          cursorPoint = svg.current.createSVGPoint();
-          cursorPoint.x = event.clientX;
-          cursorPoint.y = event.clientY;
-        }
-        return cursorPoint.matrixTransform(svg.current.getScreenCTM().inverse());
-      };
+      onUserMagnetMove({ x: position.x, y: position.y, norm: normalizePosition(position) });
+    };
+
+    const endHandler = () => {
+      document.removeEventListener("mousemove", moveHandler);
+      document.removeEventListener("touchmove", moveHandler);
+      document.removeEventListener("mouseup", endHandler);
+      document.removeEventListener("touchend", endHandler);
+    };
+
+    document.addEventListener("mousemove", moveHandler);
+    document.addEventListener("touchmove", moveHandler);
+    document.addEventListener("mouseup", endHandler, { once: true });
+    document.addEventListener("touchend", endHandler, { once: true });
+  };
+
+  const getCursorPoint = (event) => {
+    let cursorPoint;
+    if (event.touches && event.touches.length > 0) {
+      cursorPoint = svg.current.createSVGPoint();
+      cursorPoint.x = event.touches[0].clientX;
+      cursorPoint.y = event.touches[0].clientY;
+    } else {
+      cursorPoint = svg.current.createSVGPoint();
+      cursorPoint.x = event.clientX;
+      cursorPoint.y = event.clientY;
+    }
+    return cursorPoint.matrixTransform(svg.current.getScreenCTM().inverse());
+  };
 
   const cuePosition = denormalizePosition(centralCuePosition);
 
@@ -165,7 +170,7 @@ export default function BoardView({
                 fill="#000000AA"
               />
               <text
-                x={denormalizedPosition.x + magnetSize*1.2}
+                x={denormalizedPosition.x + magnetSize * 1.2}
                 y={denormalizedPosition.y}
                 fontSize="50"
                 fill="black"

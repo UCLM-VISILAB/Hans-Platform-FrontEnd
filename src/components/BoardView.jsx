@@ -223,7 +223,7 @@ export default function BoardView({
       <circle
         cx={userMagnetPosition.x}
         cy={userMagnetPosition.y}
-        r={magnetSize / 2}
+        r={3*magnetSize / 4}
         fill="#FF0000"
         onMouseDown={startDrag}
         onTouchStart={startDrag}

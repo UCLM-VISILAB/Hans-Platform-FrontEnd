@@ -11,7 +11,7 @@ export default function QuestionDetails({ image, prompt }) {
     img.src = image;
 
     img.onload = () => {
-      const maxHeightPercentage = 40; // Puedes ajustar este porcentaje según tus necesidades
+      const maxHeightPercentage = 35; // Puedes ajustar este porcentaje según tus necesidades
       const windowHeight = window.innerHeight;
       const maxHeight = (windowHeight * maxHeightPercentage) / 100;
 
@@ -29,7 +29,7 @@ export default function QuestionDetails({ image, prompt }) {
       setImageSize({ width: newWidth, height: newHeight });
 
       // Calcular el tamaño de fuente proporcional a la altura de la pantalla
-      const fontSizePercentage = 5; // Puedes ajustar este porcentaje según tus necesidades
+      const fontSizePercentage = 4; // Puedes ajustar este porcentaje según tus necesidades
       let calculatedFontSize = (windowHeight * fontSizePercentage) / 100;
 
       // Establecer un límite superior para el tamaño de fuente

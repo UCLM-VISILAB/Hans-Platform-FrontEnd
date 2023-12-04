@@ -243,7 +243,7 @@ export default function SessionView({ sessionId, participantId, onLeave = () => 
       </Backdrop>
       <Box
         component="main"
-        height='80vh'  // Set the height to 100% of the viewport height
+        height='70vh'  // Set the height to 100% of the viewport height
         sx={{
           display: 'flex',
           flexDirection: 'column',

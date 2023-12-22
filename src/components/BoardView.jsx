@@ -63,7 +63,7 @@ export default function BoardView({
 
   const startDrag = (event) => {
     // Evitar el scroll en el área del SVG
-    if (event.touches && event.touches.length === 1) {
+    if (event.pointerType === 'touch' && event.touches && event.touches.length === 1) {
       setTimeout(() => {
         event.preventDefault();
       }, 0);
@@ -81,16 +81,14 @@ export default function BoardView({
     };
 
     const endHandler = () => {
-      document.removeEventListener("mousemove", moveHandler);
-      document.removeEventListener("touchmove", moveHandler);
-      document.removeEventListener("mouseup", endHandler);
-      document.removeEventListener("touchend", endHandler);
+      document.removeEventListener("pointermove", moveHandler);
+      document.removeEventListener("pointerup", endHandler);
+      document.removeEventListener("pointercancel", endHandler);
     };
 
-    document.addEventListener("mousemove", moveHandler);
-    document.addEventListener("touchmove", moveHandler);
-    document.addEventListener("mouseup", endHandler, { once: true });
-    document.addEventListener("touchend", endHandler, { once: true });
+    document.addEventListener("pointermove", moveHandler);
+    document.addEventListener("pointerup", endHandler, { once: true });
+    document.addEventListener("pointercancel", endHandler, { once: true });
   };
 
   const getCursorPoint = (event) => {
@@ -223,10 +221,9 @@ export default function BoardView({
       <circle
         cx={userMagnetPosition.x}
         cy={userMagnetPosition.y}
-        r={3*magnetSize / 4}
+        r={3 * magnetSize / 4}
         fill="#FF0000"
-        onMouseDown={startDrag}
-        onTouchStart={startDrag}
+        onPointerDown={startDrag}   // Cambiado de onMouseMove y onTouchMove a onPointerMove
       />
     </svg>
   );

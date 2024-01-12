@@ -416,6 +416,35 @@ export default function AdminInterface({ username, password, collections, sessio
         console.log(error);
       });
   };
+  const downloadAllTrajectories = () => {
+    fetch(`/api/downloadAllTrajectories`)
+      .then(response => response.blob())
+      .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        let folder_name = "AllTrajectories.zip";
+        link.setAttribute('download', folder_name);
+        document.body.appendChild(link);
+        link.click();
+      })
+      .catch(error => {
+        console.log(error);
+      });
+  };
+  const deleteTrajectories = (event) => {
+    fetch(
+      `/api/deleteAllTrajectories`
+    ).then(res => {
+      if (res.status === 200) {
+        alert("All trajectories deleted")
+      } else {
+        res.text().then(msg => console.log(msg));
+      }
+    }).catch(error => {
+      console.log(error);
+    });
+  }
 
   return (
     <div className="admin-interface">
@@ -482,6 +511,8 @@ export default function AdminInterface({ username, password, collections, sessio
           <button onClick={downloadFolder}>Download selected log</button>
           <button onClick={downloadLastFolder}>Download last log</button>
           <button onClick={downloadAllLogs}>Download all logs</button>
+          <button onClick={downloadAllTrajectories}>Download all trajectories</button>
+          <button onClick={deleteTrajectories}>Delete all trajectories</button>
         </div>
       </div>
 

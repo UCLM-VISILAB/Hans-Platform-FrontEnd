@@ -18,12 +18,12 @@ export default function AdminInterface({ username, password, collections, sessio
   const [userMagnetPosition] = useState({ x: 0, y: 0, norm: [] });
   const [peerMagnetPositions, setPeerMagnetPositions] = useState([]);
   const usersMagnetPositions = useRef([]);
+  const timerId = useRef(null);
   const [centralCuePosition, setCentralCuePosition] = useState([]);
   const [targetDateCountdown, setTargetDateCountdown] = useState('2023-04-01T00:00:00Z');
   const targetDate = useRef('2023-04-01T00:00:00Z');
   const [shouldPublishCentralPosition, setShouldPublishCentralPosition] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
-  let timerId;
 
   useEffect(() => {
     if (sessions && sessions.length > 0) {
@@ -301,13 +301,13 @@ export default function AdminInterface({ username, password, collections, sessio
   const waitOrCloseSession = () => {
     if (!waitingCountDown) {
       setWaitingCountDown(true);
-      timerId = setTimeout(() => {
+      timerId.current = setTimeout(() => {
         setShouldPublishCentralPosition(true); // Marcar que se debe publicar la posición central
         setWaitingCountDown(false);
         sessionStatus.current = SessionStatus.Waiting;
       }, selectedSession.duration * 1000);
     } else {
-      clearTimeout(timerId);
+      clearTimeout(timerId.current);
       setShouldPublishCentralPosition(true); // Marcar que se debe publicar la posición central
       setWaitingCountDown(false);
       setTargetDateCountdown(Date.now());

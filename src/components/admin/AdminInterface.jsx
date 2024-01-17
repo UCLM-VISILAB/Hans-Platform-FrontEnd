@@ -22,6 +22,7 @@ export default function AdminInterface({ username, password, collections, sessio
   const [targetDateCountdown, setTargetDateCountdown] = useState('2023-04-01T00:00:00Z');
   const targetDate = useRef('2023-04-01T00:00:00Z');
   const [shouldPublishCentralPosition, setShouldPublishCentralPosition] = useState(false);
+  const [isChecked, setIsChecked] = useState(false);
   let timerId;
 
   useEffect(() => {
@@ -192,7 +193,7 @@ export default function AdminInterface({ username, password, collections, sessio
       currentSession.current.publishUpdate({ data: { position: centralCuePosition, timeStamp: new Date().toISOString() } });
       setShouldPublishCentralPosition(false);
       setTimeout(() => {
-        currentSession.current.publishControl({ type: 'stop' });
+        currentSession.current.publishControl({ type: 'stop', mode: isChecked?'trajectories':'normal' });
       }, 100);
     }
     // eslint-disable-next-line
@@ -433,18 +434,31 @@ export default function AdminInterface({ username, password, collections, sessio
       });
   };
   const deleteTrajectories = (event) => {
-    fetch(
-      `/api/deleteAllTrajectories`
-    ).then(res => {
-      if (res.status === 200) {
-        alert("All trajectories deleted")
-      } else {
-        res.text().then(msg => console.log(msg));
-      }
-    }).catch(error => {
-      console.log(error);
-    });
-  }
+    // Ask the user for confirmation before proceeding
+    const userConfirmed = window.confirm("Are you sure you want to delete all trajectories?");
+  
+    // If the user confirms, proceed with the deletion
+    if (userConfirmed) {
+      fetch(`/api/deleteAllTrajectories`)
+        .then(res => {
+          if (res.status === 200) {
+            alert("All trajectories have been successfully deleted.");
+          } else {
+            res.text().then(msg => console.log(msg));
+          }
+        })
+        .catch(error => {
+          console.log(error);
+        });
+    } else {
+      // If the user cancels, you can take some action or simply exit the function
+      console.log("Deletion operation canceled by the user.");
+    }
+  };
+  const handleCheckboxChange = () => {
+    // Cambia el estado al valor opuesto cuando el checkbox se marca/desmarca
+    setIsChecked(!isChecked);
+  };
 
   return (
     <div className="admin-interface">
@@ -513,6 +527,18 @@ export default function AdminInterface({ username, password, collections, sessio
           <button onClick={downloadAllLogs}>Download all logs</button>
           <button onClick={downloadAllTrajectories}>Download all trajectories</button>
           <button onClick={deleteTrajectories}>Delete all trajectories</button>
+          <div className="trajectoriesDiv">
+            <label>
+              <input
+                type="checkbox"
+                checked={isChecked}
+                onChange={handleCheckboxChange}
+              />
+              Save trajectories
+            </label>
+
+            <p>{isChecked?"Trajectories mode":"Normal mode"}</p>
+          </div>
         </div>
       </div>
 

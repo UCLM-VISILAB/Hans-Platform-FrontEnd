@@ -455,6 +455,33 @@ export default function AdminInterface({ username, password, collections, sessio
       console.log("Deletion operation canceled by the user.");
     }
   };
+  const deleteLogs = (event) => {
+    // Ask the user for confirmation before proceeding
+    const userConfirmed = window.confirm("Are you sure you want to delete all logs?");
+    const userConfirmed2 = window.confirm("Are you really sure you want to delete all logs?");
+    // If the user confirms, proceed with the deletion
+    if (userConfirmed) {
+      if(userConfirmed2){
+        fetch(`/api/deleteAllLogs`)
+        .then(res => {
+          if (res.status === 200) {
+            alert("All logs have been successfully deleted.");
+          } else {
+            res.text().then(msg => console.log(msg));
+          }
+        })
+        .catch(error => {
+          console.log(error);
+        });
+      }else {
+        // If the user cancels, you can take some action or simply exit the function
+        console.log("Deletion operation canceled by the user.");
+      }
+    } else {
+      // If the user cancels, you can take some action or simply exit the function
+      console.log("Deletion operation canceled by the user.");
+    }
+  };
   const handleCheckboxChange = () => {
     // Cambia el estado al valor opuesto cuando el checkbox se marca/desmarca
     setIsChecked(!isChecked);
@@ -527,6 +554,7 @@ export default function AdminInterface({ username, password, collections, sessio
           <button onClick={downloadAllLogs}>Download all logs</button>
           <button onClick={downloadAllTrajectories}>Download all trajectories</button>
           <button onClick={deleteTrajectories}>Delete all trajectories</button>
+          <button onClick={deleteLogs}>Delete all logs</button>
           <div className="trajectoriesDiv">
             <label>
               <input

@@ -18,11 +18,12 @@ export default function AdminInterface({ username, password, collections, sessio
   const [userMagnetPosition] = useState({ x: 0, y: 0, norm: [] });
   const [peerMagnetPositions, setPeerMagnetPositions] = useState([]);
   const usersMagnetPositions = useRef([]);
+  const timerId = useRef(null);
   const [centralCuePosition, setCentralCuePosition] = useState([]);
   const [targetDateCountdown, setTargetDateCountdown] = useState('2023-04-01T00:00:00Z');
   const targetDate = useRef('2023-04-01T00:00:00Z');
   const [shouldPublishCentralPosition, setShouldPublishCentralPosition] = useState(false);
-  let timerId;
+  const [isChecked, setIsChecked] = useState(false);
 
   useEffect(() => {
     if (sessions && sessions.length > 0) {
@@ -192,7 +193,7 @@ export default function AdminInterface({ username, password, collections, sessio
       currentSession.current.publishUpdate({ data: { position: centralCuePosition, timeStamp: new Date().toISOString() } });
       setShouldPublishCentralPosition(false);
       setTimeout(() => {
-        currentSession.current.publishControl({ type: 'stop' });
+        currentSession.current.publishControl({ type: 'stop', mode: isChecked?'trajectories':'normal' });
       }, 100);
     }
     // eslint-disable-next-line
@@ -300,13 +301,13 @@ export default function AdminInterface({ username, password, collections, sessio
   const waitOrCloseSession = () => {
     if (!waitingCountDown) {
       setWaitingCountDown(true);
-      timerId = setTimeout(() => {
+      timerId.current = setTimeout(() => {
         setShouldPublishCentralPosition(true); // Marcar que se debe publicar la posición central
         setWaitingCountDown(false);
         sessionStatus.current = SessionStatus.Waiting;
       }, selectedSession.duration * 1000);
     } else {
-      clearTimeout(timerId);
+      clearTimeout(timerId.current);
       setShouldPublishCentralPosition(true); // Marcar que se debe publicar la posición central
       setWaitingCountDown(false);
       setTargetDateCountdown(Date.now());
@@ -416,6 +417,75 @@ export default function AdminInterface({ username, password, collections, sessio
         console.log(error);
       });
   };
+  const downloadAllTrajectories = () => {
+    fetch(`/api/downloadAllTrajectories`)
+      .then(response => response.blob())
+      .then(blob => {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        let folder_name = "AllTrajectories.zip";
+        link.setAttribute('download', folder_name);
+        document.body.appendChild(link);
+        link.click();
+      })
+      .catch(error => {
+        console.log(error);
+      });
+  };
+  const deleteTrajectories = (event) => {
+    // Ask the user for confirmation before proceeding
+    const userConfirmed = window.confirm("Are you sure you want to delete all trajectories?");
+  
+    // If the user confirms, proceed with the deletion
+    if (userConfirmed) {
+      fetch(`/api/deleteAllTrajectories`)
+        .then(res => {
+          if (res.status === 200) {
+            alert("All trajectories have been successfully deleted.");
+          } else {
+            res.text().then(msg => console.log(msg));
+          }
+        })
+        .catch(error => {
+          console.log(error);
+        });
+    } else {
+      // If the user cancels, you can take some action or simply exit the function
+      console.log("Deletion operation canceled by the user.");
+    }
+  };
+  const deleteLogs = (event) => {
+    // Ask the user for confirmation before proceeding
+    const userConfirmed = window.confirm("Are you sure you want to delete all logs?");
+    const userConfirmed2 = window.confirm("Are you really sure you want to delete all logs?");
+    // If the user confirms, proceed with the deletion
+    if (userConfirmed) {
+      if(userConfirmed2){
+        fetch(`/api/deleteAllLogs`)
+        .then(res => {
+          if (res.status === 200) {
+            alert("All logs have been successfully deleted.");
+          } else {
+            res.text().then(msg => console.log(msg));
+          }
+        })
+        .catch(error => {
+          console.log(error);
+        });
+      }else {
+        // If the user cancels, you can take some action or simply exit the function
+        console.log("Deletion operation canceled by the user.");
+      }
+    } else {
+      // If the user cancels, you can take some action or simply exit the function
+      console.log("Deletion operation canceled by the user.");
+    }
+  };
+  const handleCheckboxChange = () => {
+    // Cambia el estado al valor opuesto cuando el checkbox se marca/desmarca
+    setIsChecked(!isChecked);
+  };
 
   return (
     <div className="admin-interface">
@@ -482,6 +552,21 @@ export default function AdminInterface({ username, password, collections, sessio
           <button onClick={downloadFolder}>Download selected log</button>
           <button onClick={downloadLastFolder}>Download last log</button>
           <button onClick={downloadAllLogs}>Download all logs</button>
+          <button onClick={downloadAllTrajectories}>Download all trajectories</button>
+          <button onClick={deleteTrajectories}>Delete all trajectories</button>
+          <button onClick={deleteLogs}>Delete all logs</button>
+          <div className="trajectoriesDiv">
+            <label>
+              <input
+                type="checkbox"
+                checked={isChecked}
+                onChange={handleCheckboxChange}
+              />
+              Save trajectories
+            </label>
+
+            <p>{isChecked?"Trajectories mode":"Normal mode"}</p>
+          </div>
         </div>
       </div>
 

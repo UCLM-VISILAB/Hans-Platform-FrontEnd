@@ -18,6 +18,12 @@ class Session {
             {
                 clean: true,
                 connectTimeout: 4000,
+                will: {
+                    topic: `swarm/session/${sessionId}/control/${participantId}`,  // Elige el tema que desees
+                    payload: JSON.stringify({ type: 'leave', participantId: participantId }),
+                    qos: 0,
+                    retain: false,
+                },
             }
         );
         this.client.on('connect', () => {
